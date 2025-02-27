@@ -3,6 +3,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dataRoutes = require("./routes/filedata.route.js");
 const Queue = require("bull");
+const dotenv = require("dotenv");
+const cookieParser = require("cookie-parser");
+const router = require("./routes/auth.routes.js");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -28,7 +31,8 @@ mongoose
 const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
 
 // Routes
-app.use("/api", dataRoutes(fileQueue)); // Pass the queue to routes
+app.use("/api", dataRoutes(fileQueue));
+app.use("/api/auth", router);
 
 // Start the Server
 app.listen(PORT, () => {
