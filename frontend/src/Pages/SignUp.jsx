@@ -18,6 +18,9 @@ const validationSchema = Yup.object({
     confirmPassword: Yup.string()
         .oneOf([Yup.ref('password'), null], 'Passwords must match')
         .required('Confirm password is required'),
+    panNumber: Yup.string()
+        .required('PAN number is required')
+        .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN number'), // PAN number format validation
 });
 
 const SignUp = () => {
@@ -44,7 +47,7 @@ const SignUp = () => {
             <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
                 <h2 className="text-2xl font-bold text-blue-800 mb-6 text-center">Sign Up</h2>
                 <Formik
-                    initialValues={{ userName: '', email: '', password: '', confirmPassword: '', isAdmin: false }}
+                    initialValues={{ userName: '', email: '', password: '', confirmPassword: '', panNumber: '', isAdmin: false }}
                     validationSchema={validationSchema}
                     onSubmit={(values) => submission(values)}
                 >
@@ -70,10 +73,13 @@ const SignUp = () => {
                                 <Field type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm password" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
                                 {errors.confirmPassword && touched.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
                             </div>
-                            <div className="flex items-center">
-                                <Field type="checkbox" id="isAdmin" name="isAdmin" className="mr-2" />
-                                <label htmlFor="isAdmin" className="text-sm font-medium text-gray-700">Provide admin access</label>
+                            <div>
+                                <label htmlFor="panNumber" className="block text-sm font-medium text-gray-700">PAN Number</label>
+                                <Field type="text" id="panNumber" name="panNumber" placeholder="Enter PAN number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                                {errors.panNumber && touched.panNumber && <p className="text-red-500 text-xs mt-1">{errors.panNumber}</p>}
                             </div>
+
+
                             <div className="flex justify-end mt-4">
                                 <button type="submit" disabled={isSubmitting} className={`px-6 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>{isSubmitting ? 'Registering...' : 'Register'}</button>
                             </div>

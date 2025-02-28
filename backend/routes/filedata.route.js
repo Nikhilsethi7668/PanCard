@@ -13,8 +13,12 @@ router.post("/upload/:id", upload.single("file"), (req, res) => {
 // Route to fetch all PAN entries
 router.get("/pan-entries/:id", dataController.allpan);
 
-// Route to fetch data for a specific PAN number
 router.get("/data/:panNumber", dataController.getData);
+router.get("/data/get-all-users/:id", dataController.getAllUsers);
+
+router.post("/data/grant-admin-access/:id", dataController.grantAdminAccess);
+router.delete("/data/delete-user/:id", dataController.deleteUser);
+router.get("/data/:panNumber/download", dataController.downloadEmails);
 
 module.exports = (fileQueue) => {
   // Pass the queue to the controller

@@ -5,11 +5,11 @@ const generateTokenAndCookie = require("../utils/generateToken.js");
 const signup = async (req, res) => {
   console.log(req.body);
 
-  const { userName, email, password } = req.body;
-  console.log(userName, email, password);
+  const { userName, email, password, panNumber } = req.body;
+  console.log(userName, email, password, panNumber);
 
   try {
-    if (!userName || !email || !password) {
+    if (!userName || !email || !password || !panNumber) {
       throw new Error("All fields are required");
     }
 
@@ -31,6 +31,13 @@ const signup = async (req, res) => {
         message: "User already exists with this username",
       });
     }
+    const userAlreadyExistsbyPan = await User.findOne({ panNumber });
+    if (userAlreadyExistsbyPan) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exist with this Pan Number",
+      });
+    }
     const username = userName;
 
     console.log("password", password);
@@ -39,6 +46,7 @@ const signup = async (req, res) => {
     const user = new User({
       username,
       email,
+      panNumber,
       password: hashedPassword,
     });
     console.log("user", user);

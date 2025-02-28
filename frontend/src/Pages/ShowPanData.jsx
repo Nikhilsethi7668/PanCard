@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { UserContext } from '../Context/UserContext';
 import { data } from 'react-router-dom';
+import { FaDownload } from "react-icons/fa";
 
 const ShowPanData = () => {
     const [panEntries, setPanEntries] = useState([]);
@@ -46,33 +47,37 @@ const ShowPanData = () => {
 
         fetchEmails();
     }, [selectedPan, currentPage]);
-
-    const deletePanEntry = async (panNumber) => {
+    const downloadData = async (panNumber) => {
         try {
-            await axios.delete(`http://localhost:4000/api/pan-entries/${panNumber}`);
-            alert('PAN entry deleted successfully.');
-            fetchPanEntries();
-            if (selectedPan === panNumber) {
-                setSelectedPan(null);
-            }
-        } catch (error) {
-            console.error('Error deleting PAN entry:', error);
-            alert('Failed to delete PAN entry.');
-        }
-    };
-
-    const deleteEmail = async (email) => {
-        try {
-            await axios.delete(`http://localhost:4000/api/data/${selectedPan}/emails`, {
-                data: { email },
+            // Fetch all emails for the selected PAN number
+            const response = await axios.get(`http://localhost:4000/api/data/${panNumber}/download`, {
+                params: { userId: user._id }, // Pass the user ID for authorization
             });
-            alert('Email deleted successfully.');
-            setEmails((prevEmails) => prevEmails.filter((e) => e !== email));
+
+            // Create a CSV file
+            const csvContent = response.data.emails.join("\n"); // Convert emails to CSV format
+            const blob = new Blob([csvContent], { type: "text/csv" });
+            const url = window.URL.createObjectURL(blob);
+
+            // Create a link and trigger the download
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `${panNumber}.csv`);
+            document.body.appendChild(link);
+            link.click();
+
+            // Clean up
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            alert("Download started!");
         } catch (error) {
-            console.error('Error deleting email:', error);
-            alert('Failed to delete email.');
+            console.error("Error downloading data:", error);
+            alert("Failed to download data.");
         }
     };
+
+
 
     return (
         <div className="flex flex-col md:flex-row h-screen bg-gray-100">
@@ -110,11 +115,11 @@ const ShowPanData = () => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    deletePanEntry(entry.panNumber);
+                                    downloadData(entry.panNumber)
                                 }}
                                 className="text-red-500 hover:text-red-700"
                             >
-                                🗑️
+                                <FaDownload />
                             </button>
                         </li>
                     ))}
@@ -130,12 +135,7 @@ const ShowPanData = () => {
                             {emails.map((email, index) => (
                                 <div key={index} className="p-3 bg-gray-50 rounded-md shadow-sm flex justify-between items-center">
                                     <span>{email}</span>
-                                    <button
-                                        onClick={() => deleteEmail(email)}
-                                        className="text-red-500 hover:text-red-700"
-                                    >
-                                        🗑️
-                                    </button>
+
                                 </div>
                             ))}
                         </div>

@@ -22,11 +22,45 @@ const initializeQueueProcessor = () => {
     // Stream the file and parse it using csv-parser
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on("data", (data) => results.push(data[Object.keys(data)[0]])) // Extract the relevant data
+      .on("headers", (headers) => {
+        // Normalize headers to lowercase and trim whitespace
+        const normalizedHeaders = headers.map((header) =>
+          header.trim().toLowerCase()
+        );
+
+        // Find the indices of the relevant columns
+        const panHeaderIndex = normalizedHeaders.findIndex((header) =>
+          header.includes("pan")
+        );
+        const emailHeaderIndex = normalizedHeaders.findIndex((header) =>
+          header.includes("email")
+        );
+
+        if (panHeaderIndex === -1 || emailHeaderIndex === -1) {
+          throw new Error("CSV file must contain 'pan' and 'email' columns.");
+        }
+
+        // Store the indices for later use
+        job.data.panHeaderIndex = panHeaderIndex;
+        job.data.emailHeaderIndex = emailHeaderIndex;
+      })
+      .on("data", (data) => {
+        // Extract the relevant columns based on the indices
+        const panNumber = data[job.data.panHeaderIndex];
+        const email = data[job.data.emailHeaderIndex];
+
+        if (panNumber && email) {
+          results.push({ panNumber, email });
+        }
+      })
       .on("end", () => {
         console.log(`Parsed ${results.length} rows`);
         processDataInBatches(results, userId); // Pass userId
         fs.unlinkSync(filePath); // Delete the file after processing
+      })
+      .on("error", (error) => {
+        console.error("Error parsing CSV file:", error);
+        throw error;
       });
   });
 };
@@ -100,7 +134,8 @@ const getData = async (req, res) => {
       .json({ message: "Error fetching data", error: error.message });
   }
 };
-// Function to fetch all PAN entries for a user
+
+// Function to fetch all PAN entries
 const allpan = async (req, res) => {
   try {
     const userId = req.params.id; // Get userId from request
@@ -110,9 +145,20 @@ const allpan = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    // Fetch all PAN entries for the specific user with their email counts
+    // Fetch the user's isAdmin status
+    const user = await User.findById(userId).select("isAdmin");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Define the match condition based on isAdmin status
+    const matchCondition = user.isAdmin
+      ? {}
+      : { user: new mongoose.Types.ObjectId(userId) };
+
+    // Fetch PAN entries based on the condition
     const panEntries = await Data.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } }, // Convert userId to ObjectId
+      { $match: matchCondition }, // Apply the condition
       {
         $project: {
           panNumber: 1,
@@ -130,4 +176,121 @@ const allpan = async (req, res) => {
   }
 };
 
-module.exports = { uploadFile, allpan, getData, setQueue };
+// Function to fetch all users
+const getAllUsers = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Check if the requesting user is an admin
+    const requestingUser = await User.findById(userId);
+    if (!requestingUser || !requestingUser.isAdmin) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const users = await User.find({});
+    res.status(200).json(users);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching users", error: error.message });
+  }
+};
+
+// Function to grant admin access to a user
+const grantAdminAccess = async (req, res) => {
+  try {
+    const userId = req.params.id; // Selected user's ID
+    const { requestingUserId } = req.body; // Requesting user's ID
+
+    // Check if the requesting user is an admin
+    const requestingUser = await User.findById(requestingUserId);
+    if (!requestingUser || !requestingUser.isAdmin) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Update the selected user's isAdmin status
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isAdmin: true },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error granting admin access", error: error.message });
+  }
+};
+const downloadEmails = async (req, res) => {
+  try {
+    const { panNumber } = req.params;
+    const { userId } = req.query;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    // Fetch the PAN entry for the specific user
+    const panEntry = await Data.findOne({
+      panNumber,
+      user: new mongoose.Types.ObjectId(userId), // Convert userId to ObjectId
+    });
+
+    if (!panEntry) {
+      return res
+        .status(404)
+        .json({ message: "PAN number not found for this user" });
+    }
+
+    // Return all emails
+    res.status(200).json({ emails: panEntry.email });
+  } catch (error) {
+    console.error("Error fetching emails for download:", error);
+    res
+      .status(500)
+      .json({ message: "Error fetching emails", error: error.message });
+  }
+};
+
+// Function to delete a user
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id; // Selected user's ID
+    const { requestingUserId } = req.body; // Requesting user's ID
+
+    // Check if the requesting user is an admin
+    const requestingUser = await User.findById(requestingUserId);
+    if (!requestingUser || !requestingUser.isAdmin) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Delete the selected user
+    const deletedUser = await User.findByIdAndDelete(userId);
+
+    if (!deletedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error deleting user", error: error.message });
+  }
+};
+module.exports = {
+  uploadFile,
+  allpan,
+  getData,
+  setQueue,
+  getAllUsers,
+  grantAdminAccess,
+  deleteUser,
+  downloadEmails,
+};
