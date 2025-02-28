@@ -4,16 +4,16 @@ const dataController = require("../controllers/filedata.controller.js");
 
 const router = express.Router();
 
-// Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
 
-// Route for file upload
-router.post("/upload", upload.single("file"), (req, res) => {
+router.post("/upload/:id", upload.single("file"), (req, res) => {
   dataController.uploadFile(req, res);
 });
-router.get("/pan-entries", dataController.allpan);
 
-// Route to fetch all data
+// Route to fetch all PAN entries
+router.get("/pan-entries/:id", dataController.allpan);
+
+// Route to fetch data for a specific PAN number
 router.get("/data/:panNumber", dataController.getData);
 
 module.exports = (fileQueue) => {

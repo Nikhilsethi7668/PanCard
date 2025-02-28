@@ -8,43 +8,54 @@ mongoose.connect(
   {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 5000, // Increase server selection timeout
-    socketTimeoutMS: 45000, // Increase socket timeout
+    serverSelectionTimeoutMS: 30000, // Increase server selection timeout
+    socketTimeoutMS: 60000, // Increase socket timeout
+    maxPoolSize: 50, // Increase connection pool size
   }
 );
 
-// Function to process a batch of data with retries
-const processBatch = async (batch, retries = 3) => {
+// Function to process a batch of data with retries and exponential backoff
+const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
   const bulkOps = batch
     .map((row) => {
-      const [panNumber, ...emails] = row[Object.keys(row)[0]].split("   ");
+      const [panNumber, ...emails] = row.split("   ");
       if (!panNumber || emails.length === 0) return null;
 
       return {
         updateOne: {
-          filter: { panNumber },
+          filter: { panNumber, user: userId },
           update: { $addToSet: { email: { $each: emails } } },
           upsert: true,
         },
       };
     })
-    .filter(Boolean); // Remove null entries
+    .filter(Boolean);
 
   try {
+    console.log(`Processing batch of ${batch.length} rows`);
+    const startTime = Date.now();
     await Data.bulkWrite(bulkOps, {
       ordered: false,
-      writeConcern: { w: 1 }, // Acknowledge only the primary node
+      writeConcern: { w: 0 }, // No acknowledgment for faster writes
     });
+    console.log(`Batch processed in ${Date.now() - startTime}ms`);
     parentPort.postMessage(`Processed batch of ${batch.length} rows`);
+
+    // Log progress after processing each batch
+    console.log(`${batch.length} lines done`);
   } catch (error) {
     if (retries > 0) {
-      console.warn(`Retrying batch (${retries} retries left)...`);
-      await processBatch(batch, retries - 1); // Retry the operation
+      console.warn(
+        `Retrying batch (${retries} retries left) after ${delay}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      await processBatch(batch, userId, retries - 1, delay * 2); // Exponential backoff
     } else {
-      throw error; // Throw error if retries are exhausted
+      throw error;
     }
   }
 };
 
 // Process the batch
-processBatch(workerData);
+const { batch, userId } = workerData;
+processBatch(batch, userId);

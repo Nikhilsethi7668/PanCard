@@ -7,12 +7,12 @@ import { BrowserRouter } from 'react-router-dom'
 import UserProvider from './Context/UserContext'
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
 
-    <BrowserRouter>
-      <UserProvider>
-        <App />
-      </UserProvider>
-    </BrowserRouter>
-  </StrictMode>,
+
+  <BrowserRouter>
+    <UserProvider>
+      <App />
+    </UserProvider>
+  </BrowserRouter>
+
 )

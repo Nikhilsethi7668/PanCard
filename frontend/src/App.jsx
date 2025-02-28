@@ -25,9 +25,11 @@ function App() {
       >
         <Route path="upload" element={<UploadFile />} />
         <Route path="" element={<ShowPanData />} />
+
       </Route >
-      <Route path="login" element={<SignIn />} />
-      <Route path="signup" element={<SignUp />} />
+      <Route path="/login" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
+
     </Routes>
   )
 }

@@ -19,7 +19,7 @@ const SignIn = () => {
     const handleLogin = async (data) => {
         try {
             await login(data);
-            navigate("/dashboard"); // Redirect to dashboard after successful login
+            navigate("/"); // Redirect to dashboard after successful login
         } catch (error) {
             console.error("Login error:", error);
             setErrorMessage("Invalid email or password");
