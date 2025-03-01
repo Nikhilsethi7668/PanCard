@@ -17,7 +17,7 @@ const processDataInBatches = async (data, userId, batchSize = 50000) => {
       if (batch.length === 0) continue;
 
       const worker = new Worker("./worker.js", {
-        workerData: { batch, userId },
+        workerData: { batch, userId: userId.toString() }, // Ensure userId is passed as a string
       });
       workers.push(worker);
 

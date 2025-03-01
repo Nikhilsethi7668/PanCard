@@ -1,5 +1,6 @@
 const { parentPort, workerData } = require("worker_threads");
 const mongoose = require("mongoose");
+const { ObjectId } = require("mongoose").Types; // Import ObjectId from mongoose
 const Data = require("./models/dataSchema");
 
 // Connect to MongoDB
@@ -26,7 +27,7 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
 
       return {
         updateOne: {
-          filter: { panNumber, user: userId },
+          filter: { panNumber, user: new ObjectId(userId) }, // Convert userId to ObjectId
           update: { $addToSet: { email } }, // Add the email to the set
           upsert: true,
         },
@@ -36,17 +37,22 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
 
   try {
     console.log(`Processing batch of ${batch.length} rows`);
+    console.log("Bulk Operations:", JSON.stringify(bulkOps, null, 2)); // Log the bulk operations
+
     const startTime = Date.now();
-    await Data.bulkWrite(bulkOps, {
+    const result = await Data.bulkWrite(bulkOps, {
       ordered: false,
       writeConcern: { w: 0 }, // No acknowledgment for faster writes
     });
+
+    console.log("Bulk Write Result:", result); // Log the result of the bulk write
     console.log(`Batch processed in ${Date.now() - startTime}ms`);
     parentPort.postMessage(`Processed batch of ${batch.length} rows`);
 
     // Log progress after processing each batch
     console.log(`${batch.length} lines done`);
   } catch (error) {
+    console.error("Error in bulkWrite:", error); // Log the full error
     if (retries > 0) {
       console.warn(
         `Retrying batch (${retries} retries left) after ${delay}ms...`
@@ -58,6 +64,7 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
     }
   }
 };
+
 // Process the batch
 const { batch, userId } = workerData;
-processBatch(batch, userId);
+processBatch(batch, userId); // Pass userId as a string

@@ -4,6 +4,8 @@ const Data = require("../models/dataSchema");
 const User = require("../models/userSchema");
 const processDataInBatches = require("../processDataInBatches");
 const mongoose = require("mongoose");
+const FileRequest = require("../models/fileRequests");
+const path = require("path");
 
 let fileQueue;
 
@@ -69,7 +71,6 @@ const initializeQueueProcessor = () => {
           console.log("Skipping row due to empty panNumber or email");
         }
       })
-
       .on("end", () => {
         console.log("Parsed Results:", results); // Log the final results array
         console.log(`Parsed ${results.length} rows`);
@@ -83,6 +84,7 @@ const initializeQueueProcessor = () => {
       });
   });
 };
+
 // Upload and process file
 const uploadFile = async (req, res) => {
   try {
@@ -248,6 +250,8 @@ const grantAdminAccess = async (req, res) => {
       .json({ message: "Error granting admin access", error: error.message });
   }
 };
+
+// Function to download emails
 const downloadEmails = async (req, res) => {
   try {
     const { panNumber } = req.params;
@@ -306,6 +310,179 @@ const deleteUser = async (req, res) => {
       .json({ message: "Error deleting user", error: error.message });
   }
 };
+
+// Submit file upload request
+const submitFileRequest = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded." });
+    }
+
+    const newRequest = new FileRequest({
+      userId,
+      fileName: file.originalname,
+      filePath: file.path, // Ensure this is the correct path
+    });
+
+    await newRequest.save();
+
+    res.status(200).json({
+      message: "File upload request submitted for approval.",
+      requestId: newRequest._id,
+    });
+  } catch (error) {
+    console.error("Error submitting file request:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// Fetch pending requests for admin
+const getPendingRequests = async (req, res) => {
+  try {
+    const requests = await FileRequest.find({ status: "pending" }).populate(
+      "userId",
+      "email"
+    );
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+const updateRequestStatus = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status." });
+    }
+
+    const request = await FileRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found." });
+    }
+
+    request.status = status;
+    await request.save();
+
+    if (status === "approved") {
+      // Ensure the "uploads/processed" directory exists
+      const processedDir = path.join(__dirname, "../uploads/processed");
+      if (!fs.existsSync(processedDir)) {
+        fs.mkdirSync(processedDir, { recursive: true });
+      }
+
+      // Verify the file exists before moving it
+      if (fs.existsSync(request.filePath)) {
+        const finalPath = path.join(processedDir, request.fileName);
+        fs.renameSync(request.filePath, finalPath);
+        request.filePath = finalPath;
+        await request.save();
+
+        // Process the file after moving it
+        const results = [];
+        await new Promise((resolve, reject) => {
+          fs.createReadStream(finalPath)
+            .pipe(csv())
+            .on("headers", (headers) => {
+              console.log("Headers:", headers);
+
+              // Normalize headers to lowercase and trim whitespace
+              const normalizedHeaders = headers.map((header) =>
+                header.trim().toLowerCase()
+              );
+
+              // Find the indices of the relevant columns
+              const panHeaderIndex = normalizedHeaders.findIndex((header) =>
+                header.includes("pan")
+              );
+              const emailHeaderIndex = normalizedHeaders.findIndex((header) =>
+                header.includes("email")
+              );
+
+              if (panHeaderIndex === -1 || emailHeaderIndex === -1) {
+                reject(
+                  new Error("CSV file must contain 'pan' and 'email' columns.")
+                );
+              }
+            })
+            .on("data", (data) => {
+              // Extract the relevant columns using the header names
+              const panNumber = data.pan;
+              const email = data.email;
+
+              // Skip empty rows
+              if (panNumber && email) {
+                results.push({ panNumber, email });
+              } else {
+                console.log("Skipping row due to empty panNumber or email");
+              }
+            })
+            .on("end", () => {
+              console.log("Parsed Results:", results);
+              console.log(`Parsed ${results.length} rows`);
+
+              // Process the data in batches
+              processDataInBatches(results, request.userId);
+
+              // Delete the file after processing
+              fs.unlinkSync(finalPath);
+
+              resolve();
+            })
+            .on("error", (error) => {
+              console.error("Error parsing CSV file:", error);
+              reject(error);
+            });
+        });
+      } else {
+        console.error("File not found:", request.filePath);
+        return res.status(404).json({ message: "File not found." });
+      }
+    } else if (status === "rejected") {
+      // Verify the file exists before deleting it
+      if (fs.existsSync(request.filePath)) {
+        fs.unlinkSync(request.filePath);
+      } else {
+        console.error("File not found:", request.filePath);
+        return res.status(404).json({ message: "File not found." });
+      }
+    }
+
+    res.status(200).json({ message: `Request ${status} successfully.` });
+  } catch (error) {
+    console.error("Error updating request status:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+// Fetch pending requests for a specific user
+const getPendingRequestsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    // Fetch pending requests for the specific user
+    const requests = await FileRequest.find({
+      userId,
+      status: "pending",
+    }).populate("userId", "email");
+
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error("Error fetching pending requests for user:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 module.exports = {
   uploadFile,
   allpan,
@@ -315,4 +492,8 @@ module.exports = {
   grantAdminAccess,
   deleteUser,
   downloadEmails,
+  submitFileRequest,
+  getPendingRequests,
+  updateRequestStatus,
+  getPendingRequestsByUser,
 };

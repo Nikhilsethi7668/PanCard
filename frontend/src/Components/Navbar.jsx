@@ -29,11 +29,13 @@ const Navbar = () => {
                 <div className="hidden md:flex space-x-6">
                     <Link to="/" className="text-white hover:text-gray-200 transition">PanData</Link>
                     <Link to="/upload" className="text-white hover:text-gray-200 transition">UploadFile</Link>
-                    {
-                        user.isAdmin &&
-                        <Link to="/users" className="text-white hover:text-gray-200 transition">Handle Users</Link>
-                    }
-
+                    {user.isAdmin && (
+                        <>
+                            <Link to="/admin-dashboard" className="text-white hover:text-gray-200 transition">Admin Dashboard</Link>
+                            <Link to="/users" className="text-white hover:text-gray-200 transition">Handle Users</Link>
+                        </>
+                    )}
+                    <Link to="/user-requests" className="text-white hover:text-gray-200 transition">Your Requests</Link>
                 </div>
 
                 {/* Authentication & Profile */}
@@ -66,7 +68,13 @@ const Navbar = () => {
                 <div className="md:hidden flex flex-col bg-blue-600 text-white p-4 space-y-4">
                     <Link to="/" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>PanData</Link>
                     <Link to="/upload" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>UploadFile</Link>
-                    <Link to="/users" className="text-white hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>Handle Users</Link>
+                    {user.isAdmin && (
+                        <>
+                            <Link to="/admin-dashboard" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>Admin Dashboard</Link>
+                            <Link to="/users" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>Handle Users</Link>
+                        </>
+                    )}
+                    <Link to="/user-requests" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>Your Requests</Link>
 
                     {isAuthenticated ? (
                         <button

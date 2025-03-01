@@ -9,14 +9,15 @@ const UploadFile = () => {
     const navigate = useNavigate();
     const { user } = useContext(UserContext);
     const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState(''); // To show the status of the request
 
     // Handle File Selection
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
     };
 
-    // Handle File Upload
-    const handleUpload = async () => {
+    // Handle File Upload Request
+    const handleUploadRequest = async () => {
         if (!file) {
             alert('Please select a file to upload.');
             return;
@@ -28,15 +29,15 @@ const UploadFile = () => {
         formData.append('file', file);
 
         try {
-            await axios.post(`http://localhost:4000/api/upload/${user._id}`, formData, {
+            const response = await axios.post(`http://localhost:4000/api/upload/request/${user._id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            alert('File uploaded successfully!');
-            navigate('/'); // Redirect to Show Data page
+            setStatus('pending'); // Set status to pending
+            alert('File upload request submitted for approval.');
         } catch (error) {
-            console.error('Error uploading file:', error);
-            alert('Failed to upload file.');
+            console.error('Error submitting file request:', error);
+            alert('Failed to submit file upload request.');
         } finally {
             setLoading(false);
         }
@@ -54,7 +55,7 @@ const UploadFile = () => {
                         className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
-                        onClick={handleUpload}
+                        onClick={handleUploadRequest}
                         className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 relative"
                         disabled={loading}
                     >
@@ -63,9 +64,10 @@ const UploadFile = () => {
                                 <Loader className="w-6 h-6" /> {/* Ensure Loader has a fixed size */}
                             </div>
                         ) : (
-                            'Upload File'
+                            'Submit for Approval'
                         )}
                     </button>
+                    {status && <p className="text-gray-700">Status: {status}</p>}
                 </div>
             </div>
         </div>
