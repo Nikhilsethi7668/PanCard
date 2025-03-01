@@ -18,18 +18,21 @@ mongoose.connect(
 const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
   const bulkOps = batch
     .map((row) => {
-      const [panNumber, ...emails] = row.split("   ");
-      if (!panNumber || emails.length === 0) return null;
+      // Access panNumber and email directly from the row object
+      const { panNumber, email } = row;
+
+      // Skip if panNumber or email is missing
+      if (!panNumber || !email) return null;
 
       return {
         updateOne: {
           filter: { panNumber, user: userId },
-          update: { $addToSet: { email: { $each: emails } } },
+          update: { $addToSet: { email } }, // Add the email to the set
           upsert: true,
         },
       };
     })
-    .filter(Boolean);
+    .filter(Boolean); // Remove null entries
 
   try {
     console.log(`Processing batch of ${batch.length} rows`);
@@ -55,7 +58,6 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
     }
   }
 };
-
 // Process the batch
 const { batch, userId } = workerData;
 processBatch(batch, userId);

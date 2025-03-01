@@ -13,20 +13,25 @@ const setQueue = (queue) => {
   initializeQueueProcessor(); // Initialize the queue processor after setting the queue
 };
 
-// Function to initialize the queue processor
 const initializeQueueProcessor = () => {
-  fileQueue.process(async (job) => {
+  fileQueue.process(async (job, done) => {
     const { filePath, userId } = job.data;
     const results = [];
+
+    console.log("Processing file:", filePath); // Log the file path
 
     // Stream the file and parse it using csv-parser
     fs.createReadStream(filePath)
       .pipe(csv())
       .on("headers", (headers) => {
+        console.log("Headers:", headers); // Log headers for debugging
+
         // Normalize headers to lowercase and trim whitespace
         const normalizedHeaders = headers.map((header) =>
           header.trim().toLowerCase()
         );
+
+        console.log("Normalized Headers:", normalizedHeaders); // Log normalized headers
 
         // Find the indices of the relevant columns
         const panHeaderIndex = normalizedHeaders.findIndex((header) =>
@@ -35,6 +40,9 @@ const initializeQueueProcessor = () => {
         const emailHeaderIndex = normalizedHeaders.findIndex((header) =>
           header.includes("email")
         );
+
+        console.log("Pan Header Index:", panHeaderIndex); // Log pan header index
+        console.log("Email Header Index:", emailHeaderIndex); // Log email header index
 
         if (panHeaderIndex === -1 || emailHeaderIndex === -1) {
           throw new Error("CSV file must contain 'pan' and 'email' columns.");
@@ -45,26 +53,36 @@ const initializeQueueProcessor = () => {
         job.data.emailHeaderIndex = emailHeaderIndex;
       })
       .on("data", (data) => {
-        // Extract the relevant columns based on the indices
-        const panNumber = data[job.data.panHeaderIndex];
-        const email = data[job.data.emailHeaderIndex];
+        console.log("Raw Row:", data); // Log the raw row
 
+        // Extract the relevant columns using the header names
+        const panNumber = data.pan;
+        const email = data.email;
+
+        console.log("Extracted Pan Number:", panNumber); // Log the extracted panNumber
+        console.log("Extracted Email:", email); // Log the extracted email
+
+        // Skip empty rows
         if (panNumber && email) {
           results.push({ panNumber, email });
+        } else {
+          console.log("Skipping row due to empty panNumber or email");
         }
       })
+
       .on("end", () => {
+        console.log("Parsed Results:", results); // Log the final results array
         console.log(`Parsed ${results.length} rows`);
         processDataInBatches(results, userId); // Pass userId
         fs.unlinkSync(filePath); // Delete the file after processing
+        done(); // Signal that the job is done
       })
       .on("error", (error) => {
         console.error("Error parsing CSV file:", error);
-        throw error;
+        done(error); // Signal that the job failed
       });
   });
 };
-
 // Upload and process file
 const uploadFile = async (req, res) => {
   try {
@@ -83,9 +101,13 @@ const uploadFile = async (req, res) => {
     }
 
     // Add the file processing job to the queue
-    await fileQueue.add({ filePath: req.file.path, userId });
+    const job = await fileQueue.add({ filePath: req.file.path, userId });
 
-    res.status(200).send("File upload received. Processing in the background.");
+    // Wait for the job to finish
+    await job.finished();
+
+    // Send response after the job is completed
+    res.status(200).send("File processed successfully.");
   } catch (error) {
     console.error("Error during file upload:", error);
     res.status(500).json({ message: "Internal server error." });

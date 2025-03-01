@@ -55,10 +55,16 @@ const UploadFile = () => {
                     />
                     <button
                         onClick={handleUpload}
-                        className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+                        className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 relative"
                         disabled={loading}
                     >
-                        {loading ? <Loader /> : 'Upload File'}
+                        {loading ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Loader className="w-6 h-6" /> {/* Ensure Loader has a fixed size */}
+                            </div>
+                        ) : (
+                            'Upload File'
+                        )}
                     </button>
                 </div>
             </div>

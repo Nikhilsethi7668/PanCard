@@ -41,5 +41,4 @@ const processDataInBatches = async (data, userId, batchSize = 50000) => {
     await Promise.all(workerPromises); // Wait for all workers to finish
   }
 };
-
 module.exports = processDataInBatches;

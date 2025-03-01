@@ -4,7 +4,7 @@ import { UserContext } from "../Context/UserContext";
 import { FiMenu, FiX } from "react-icons/fi";
 
 const Navbar = () => {
-    const { isAuthenticated, login, logout } = useContext(UserContext);
+    const { isAuthenticated, login, logout, user } = useContext(UserContext);
     const [isOpen, setIsOpen] = useState(false);
     const navigate = useNavigate();
 
@@ -29,7 +29,11 @@ const Navbar = () => {
                 <div className="hidden md:flex space-x-6">
                     <Link to="/" className="text-white hover:text-gray-200 transition">PanData</Link>
                     <Link to="/upload" className="text-white hover:text-gray-200 transition">UploadFile</Link>
-                    <Link to="/users" className="text-white hover:text-gray-200 transition">Handle Users</Link>
+                    {
+                        user.isAdmin &&
+                        <Link to="/users" className="text-white hover:text-gray-200 transition">Handle Users</Link>
+                    }
+
                 </div>
 
                 {/* Authentication & Profile */}
