@@ -11,9 +11,12 @@ app.use(cookieParser());
 dotenv.config();
 
 const PORT = process.env.PORT || 4000;
-
+const corseConnection = [
+  "http://localhost:5173",
+  "https://pancard-1-3vgg.onrender.com",
+];
 // Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: corseConnection, credentials: true }));
 app.use(express.json());
 
 // MongoDB Connection
