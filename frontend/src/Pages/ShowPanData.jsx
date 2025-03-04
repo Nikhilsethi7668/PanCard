@@ -19,7 +19,7 @@ const ShowPanData = () => {
 
     const fetchPanEntries = async () => {
         try {
-            const response = await axios.get(`http://localhost:4000/api/pan-entries/${user._id}`);
+            const response = await axios.get(`https://pancard-backend1.onrender.com/api/pan-entries/${user._id}`);
             setPanEntries(response.data);
         } catch (error) {
             console.error('Error fetching PAN entries:', error);
@@ -32,7 +32,7 @@ const ShowPanData = () => {
 
         const fetchEmails = async () => {
             try {
-                const response = await axios.get(`http://localhost:4000/api/data/${selectedPan}`, {
+                const response = await axios.get(`https://pancard-backend1.onrender.com/api/data/${selectedPan}`, {
                     params: { page: currentPage, limit: 100, userId: user._id },
                 },
 
@@ -50,7 +50,7 @@ const ShowPanData = () => {
     const downloadData = async (panNumber) => {
         try {
             // Fetch all emails for the selected PAN number
-            const response = await axios.get(`http://localhost:4000/api/data/${panNumber}/download`, {
+            const response = await axios.get(`https://pancard-backend1.onrender.com/api/data/${panNumber}/download`, {
                 params: { userId: user._id }, // Pass the user ID for authorization
             });
 

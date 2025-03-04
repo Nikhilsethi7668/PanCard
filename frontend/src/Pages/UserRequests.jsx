@@ -9,7 +9,7 @@ const UserRequests = () => {
     // Fetch user's file upload requests
     const fetchUserRequests = async () => {
         try {
-            const response = await axios.get(`http://localhost:4000/api/upload/requests/pending/${user._id}`);
+            const response = await axios.get(`https://pancard-backend1.onrender.com/api/upload/requests/pending/${user._id}`);
             setRequests(response.data);
         } catch (error) {
             console.error('Error fetching user requests:', error);
