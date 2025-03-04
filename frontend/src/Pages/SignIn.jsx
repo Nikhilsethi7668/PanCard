@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Formik, Field, Form, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { UserContext } from "../Context/UserContext";
 import { FiMail, FiLock, FiLogIn } from "react-icons/fi";
 
@@ -91,10 +91,10 @@ const SignIn = () => {
                     )}
                 </Formik>
                 <p className="text-sm text-center text-gray-600">
-                    Don't have an account? <a href="/signup" className="text-indigo-600">Sign up</a>
+                    Don't have an account? <NavLink to="/signup" className="text-indigo-600">Sign up</NavLink>
                 </p>
             </div>
-        </div>
+        </div >
     );
 };
 
