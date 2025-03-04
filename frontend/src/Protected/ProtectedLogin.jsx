@@ -10,7 +10,7 @@ const ProtectedLogin = ({ children }) => {
         return <Loader />;
     }
     if (!isAuthenticated || !user) {
-        alert("Please login to continue");
+
         return <Navigate to="/login" replace />;
     }
 
