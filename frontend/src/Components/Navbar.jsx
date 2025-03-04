@@ -77,15 +77,23 @@ const Navbar = () => {
                     <Link to="/user-requests" className="hover:text-gray-200 transition" onClick={() => setIsOpen(false)}>Your Requests</Link>
 
                     {isAuthenticated ? (
-                        <button
-                            onClick={() => {
-                                handleLogout();
-                                setIsOpen(false);
-                            }}
-                            className="bg-red-500 px-4 py-2 rounded hover:bg-red-600 transition"
-                        >
-                            Logout
-                        </button>
+                        <div className="right flex">
+                            <button
+                                onClick={() => {
+                                    handleLogout();
+                                    setIsOpen(false);
+                                }}
+                                className="bg-red-500 px-4 py-2 rounded hover:bg-red-600 transition"
+                            >
+                                Logout
+                            </button>
+                            <NavLink
+                                to="/profile"
+                                className="text-gray-600 hover:text-purple-600"
+                            >
+                                Profile
+                            </NavLink>
+                        </div>
                     ) : (
                         <button
                             onClick={() => {
