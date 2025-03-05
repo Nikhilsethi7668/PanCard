@@ -1,7 +1,9 @@
-const User = require("../models/userSchema");
+const User = require("../models/userSchema"); // Import the User model
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const generateTokenAndCookie = require("../utils/generateToken.js");
+
+// Signup Controller
 const signup = async (req, res) => {
   console.log(req.body);
 
@@ -9,130 +11,175 @@ const signup = async (req, res) => {
   console.log(userName, email, password, panNumber);
 
   try {
+    // Validate required fields
     if (!userName || !email || !password || !panNumber) {
       throw new Error("All fields are required");
     }
 
-    const userAlreadyExists = await User.findOne({ email });
-
+    // Check if user already exists with the same email
+    const userAlreadyExists = await User.findOne({ where: { email } });
     if (userAlreadyExists) {
       return res.status(400).json({
         success: false,
-        message: "User already exist with this email",
+        message: "User already exists with this email",
       });
     }
-    const userAlreadyExistsbyUsername = await User.findOne({
-      username: userName,
-    });
 
+    // Check if user already exists with the same username
+    const userAlreadyExistsbyUsername = await User.findOne({
+      where: { username: userName },
+    });
     if (userAlreadyExistsbyUsername) {
       return res.status(400).json({
         success: false,
         message: "User already exists with this username",
       });
     }
-    const userAlreadyExistsbyPan = await User.findOne({ panNumber });
+
+    // Check if user already exists with the same PAN number
+    const userAlreadyExistsbyPan = await User.findOne({
+      where: { panNumber },
+    });
     if (userAlreadyExistsbyPan) {
       return res.status(400).json({
         success: false,
-        message: "User already exist with this Pan Number",
+        message: "User already exists with this PAN number",
       });
     }
-    const username = userName;
 
-    console.log("password", password);
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = new User({
-      username,
+    // Create a new user
+    const user = await User.create({
+      username: userName,
       email,
       panNumber,
       password: hashedPassword,
     });
-    console.log("user", user);
 
-    await user.save();
+    console.log("User created:", user);
 
-    generateTokenAndCookie(res, user._id);
+    // Generate JWT token and set cookie
+    generateTokenAndCookie(res, user.id);
+
+    // Return success response
     res.status(201).json({
       success: true,
       message: "User created successfully",
       user: {
-        ...user._doc,
-        password: undefined,
-        confirmPassword: undefined,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        panNumber: user.panNumber,
       },
     });
   } catch (error) {
-    console.log("error", error);
+    console.log("Error:", error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
+// Login Controller
 const login = async (req, res) => {
-  console.log("login");
-  console.log(req.body);
-  const { email, password } = req.body.email;
-  console.log(email, password);
+  console.log("Login request:", req.body);
+  const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    // Find user by email
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Credentials",
+        message: "Invalid credentials",
       });
     }
+
+    // Validate password
+    // console.log("givenb pass", password);
+    // console.log("user pass", user.password);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      console.log(isPasswordValid);
       return res.status(400).json({
         success: false,
-        message: "Invalid Credentials",
+        message: "Invalid credentials",
       });
     }
-    console.log("user", user);
 
-    generateTokenAndCookie(res, user._id);
+    console.log("User logged in:", user);
 
+    // Generate JWT token and set cookie
+    generateTokenAndCookie(res, user.id);
+
+    // Update last login timestamp
     user.lastLogin = new Date();
     await user.save();
 
+    // Return success response
     res.status(200).json({
       success: true,
-      message: "Logged in Successfully",
+      message: "Logged in successfully",
       user: {
-        ...user._doc,
-        password: undefined,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        panNumber: user.panNumber,
+        isAdmin: user.isAdmin,
       },
     });
   } catch (error) {
-    console.log("error", error);
+    console.log("Error:", error);
     res.status(400).json({
       success: false,
-      message: `Login Failes : ${error}`,
+      message: `Login failed: ${error.message}`,
     });
   }
 };
 
+// Logout Controller
 const logout = async (req, res) => {
   res.clearCookie("token");
   res.status(200).json({
     success: true,
-    message: "Logged-Out Successfully",
+    message: "Logged out successfully",
   });
 };
 
+// Check Authentication Controller
 const checkAuth = async (req, res) => {
   const { token } = req.cookies;
+  // console.log(token);
+
   if (!token) {
     return res.status(401).json({ authenticated: false });
   }
-  console.log("token", token);
-  const decoded = jwt.verify(token, process.env.JWT_Token);
-  const user = await User.findById(decoded.userId);
-  if (!user) {
+
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token, "TokenForPanDetails");
+    // console.log(decoded);
+    const user = await User.findByPk(decoded.userId);
+
+    if (!user) {
+      return res.status(401).json({ authenticated: false });
+    }
+
+    // Return authenticated user
+    return res.status(200).json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        panNumber: user.panNumber,
+        isAdmin: user.isAdmin,
+      },
+    });
+  } catch (error) {
+    console.log("Error:", error);
     return res.status(401).json({ authenticated: false });
   }
-  return res.status(200).json({ authenticated: true, user });
 };
+
 module.exports = { signup, login, logout, checkAuth };

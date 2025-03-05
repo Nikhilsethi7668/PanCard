@@ -29,9 +29,14 @@ const UploadFile = () => {
         formData.append('file', file);
 
         try {
-            const response = await axios.post(`https://pancard-backend1.onrender.com/api/upload/request/${user._id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            // Ensure user.id is passed (MySQL uses numeric IDs)
+            const response = await axios.post(
+                `http://localhost:4000/api/upload/${user.id}`, // Use user.id instead of user._id
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                }
+            );
 
             setStatus('pending'); // Set status to pending
             alert('File upload request submitted for approval.');

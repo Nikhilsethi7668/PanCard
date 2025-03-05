@@ -1,19 +1,35 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-const dataSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
+const Data = sequelize.define("Data", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
   panNumber: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   email: {
-    type: [String],
-    default: [],
+    type: DataTypes.TEXT, // Store emails as a JSON string
+    allowNull: false,
+    get() {
+      const rawValue = this.getDataValue("email");
+      return rawValue ? JSON.parse(rawValue) : [];
+    },
+    set(value) {
+      this.setDataValue("email", JSON.stringify(value));
+    },
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: "Users", // Reference the User table
+      key: "id",
+    },
   },
 });
 
-module.exports = mongoose.model("Data", dataSchema);
+module.exports = Data;

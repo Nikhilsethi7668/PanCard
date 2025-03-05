@@ -1,15 +1,37 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
+const User = require("./userSchema"); // Ensure User is imported
 
-const fileRequestSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  fileName: { type: String, required: true },
-  filePath: { type: String, required: true },
-  status: {
-    type: String,
-    enum: ["pending", "approved", "rejected"],
-    default: "pending",
+const FileRequest = sequelize.define("FileRequest", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
-  createdAt: { type: Date, default: Date.now },
+  fileName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  filePath: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.ENUM("pending", "approved", "rejected"),
+    defaultValue: "pending",
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: User,
+      key: "id",
+    },
+  },
 });
 
-module.exports = mongoose.model("FileRequest", fileRequestSchema);
+// Define associations here
+User.hasMany(FileRequest, { foreignKey: "userId", as: "fileRequests" });
+FileRequest.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+module.exports = FileRequest;

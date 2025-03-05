@@ -13,7 +13,7 @@ const HandleUsers = () => {
 
     const fetchAllUsers = async () => {
         try {
-            const response = await Axios.get(`/data/get-all-users/${user._id}`);
+            const response = await Axios.get(`/data/get-all-users/${user.id}`);
             setAllUsers(response.data);
         } catch (error) {
             alert(error.message);
@@ -36,7 +36,7 @@ const HandleUsers = () => {
     const handleDeleteUser = async (userId) => {
         try {
             await Axios.delete(`/data/delete-user/${userId}`, {
-                data: { requestingUserId: user._id }, // Pass the requesting user's ID
+                data: { requestingUserId: user.id }, // Pass the requesting user's ID
             });
             fetchAllUsers(); // Refresh the list after deleting the user
             alert('User deleted successfully!');

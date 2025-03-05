@@ -21,9 +21,9 @@ export const checkAuth = async () => {
   }
 };
 
-export const login = async (email, password) => {
+export const login = async (data) => {
   try {
-    const response = await Axios.post("/auth/login", { email, password });
+    const response = await Axios.post("/auth/login", data);
     console.log("response", response);
     return response.data;
   } catch (error) {

@@ -1,5 +1,6 @@
 const csv = require("csv-parser");
 const fs = require("fs");
+const sequelize = require("../config/database"); // Import sequelize
 const Data = require("../models/dataSchema");
 const User = require("../models/userSchema");
 const processDataInBatches = require("../processDataInBatches");
@@ -20,20 +21,20 @@ const initializeQueueProcessor = () => {
     const { filePath, userId } = job.data;
     const results = [];
 
-    console.log("Processing file:", filePath); // Log the file path
+    console.log("Processing file:", filePath);
 
     // Stream the file and parse it using csv-parser
     fs.createReadStream(filePath)
       .pipe(csv())
       .on("headers", (headers) => {
-        console.log("Headers:", headers); // Log headers for debugging
+        console.log("Headers:", headers);
 
         // Normalize headers to lowercase and trim whitespace
         const normalizedHeaders = headers.map((header) =>
           header.trim().toLowerCase()
         );
 
-        console.log("Normalized Headers:", normalizedHeaders); // Log normalized headers
+        console.log("Normalized Headers:", normalizedHeaders);
 
         // Find the indices of the relevant columns
         const panHeaderIndex = normalizedHeaders.findIndex((header) =>
@@ -43,8 +44,8 @@ const initializeQueueProcessor = () => {
           header.includes("email")
         );
 
-        console.log("Pan Header Index:", panHeaderIndex); // Log pan header index
-        console.log("Email Header Index:", emailHeaderIndex); // Log email header index
+        console.log("Pan Header Index:", panHeaderIndex);
+        console.log("Email Header Index:", emailHeaderIndex);
 
         if (panHeaderIndex === -1 || emailHeaderIndex === -1) {
           throw new Error("CSV file must contain 'pan' and 'email' columns.");
@@ -55,27 +56,32 @@ const initializeQueueProcessor = () => {
         job.data.emailHeaderIndex = emailHeaderIndex;
       })
       .on("data", (data) => {
-        console.log("Raw Row:", data); // Log the raw row
+        console.log("Raw Row:", data);
 
         // Extract the relevant columns using the header names
         const panNumber = data.pan;
         const email = data.email;
 
-        console.log("Extracted Pan Number:", panNumber); // Log the extracted panNumber
-        console.log("Extracted Email:", email); // Log the extracted email
+        console.log("Extracted Pan Number:", panNumber);
+        console.log("Extracted Email:", email);
 
         // Skip empty rows
         if (panNumber && email) {
-          results.push({ panNumber, email });
+          results.push({ panNumber, email, userId });
         } else {
           console.log("Skipping row due to empty panNumber or email");
         }
       })
       .on("end", () => {
-        console.log("Parsed Results:", results); // Log the final results array
+        console.log("Parsed Results:", results);
         console.log(`Parsed ${results.length} rows`);
-        processDataInBatches(results, userId); // Pass userId
-        fs.unlinkSync(filePath); // Delete the file after processing
+
+        // Process the data in batches
+        processDataInBatches(results, userId);
+
+        // Delete the file after processing
+        fs.unlinkSync(filePath);
+
         done(); // Signal that the job is done
       })
       .on("error", (error) => {
@@ -91,7 +97,7 @@ const uploadFile = async (req, res) => {
     const userId = req.params.id;
 
     // Ensure user exists
-    const user = await User.findOne({ _id: userId });
+    const user = await User.findByPk(userId);
     if (!user) {
       console.log("No User Exists");
       return res.status(400).json({ message: "User doesn't exist" });
@@ -115,24 +121,17 @@ const uploadFile = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
-
 // Function to fetch all data from the database
 const getData = async (req, res) => {
   try {
     const panNumber = req.params.panNumber;
     const { page = 1, limit = 100 } = req.query;
-    const skip = (page - 1) * limit;
-    const userId = req.query.userId; // Get userId from request
-
-    // Validate userId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
+    const offset = (page - 1) * limit;
+    const userId = req.query.userId;
 
     // Find the PAN entry for the specific user
     const panEntry = await Data.findOne({
-      panNumber,
-      user: new mongoose.Types.ObjectId(userId), // Convert userId to ObjectId
+      where: { panNumber, userId },
     });
 
     if (!panEntry) {
@@ -142,7 +141,7 @@ const getData = async (req, res) => {
     }
 
     // Paginate the emails
-    const emails = panEntry.email.slice(skip, skip + parseInt(limit));
+    const emails = panEntry.email.slice(offset, offset + parseInt(limit));
 
     res.status(200).json({
       panNumber: panEntry.panNumber,
@@ -159,37 +158,29 @@ const getData = async (req, res) => {
   }
 };
 
-// Function to fetch all PAN entries
 const allpan = async (req, res) => {
   try {
-    const userId = req.params.id; // Get userId from request
-
-    // Validate userId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
+    const userId = req.params.id;
+    console.log(userId);
 
     // Fetch the user's isAdmin status
-    const user = await User.findById(userId).select("isAdmin");
+    const user = await User.findByPk(userId, { attributes: ["isAdmin"] });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Define the match condition based on isAdmin status
-    const matchCondition = user.isAdmin
-      ? {}
-      : { user: new mongoose.Types.ObjectId(userId) };
+    // Define the conditio n based on isAdmin status
+    const whereCondition = user.isAdmin ? {} : { userId };
 
     // Fetch PAN entries based on the condition
-    const panEntries = await Data.aggregate([
-      { $match: matchCondition }, // Apply the condition
-      {
-        $project: {
-          panNumber: 1,
-          emailCount: { $size: "$email" }, // Add email count for each PAN
-        },
-      },
-    ]);
+    const panEntries = await Data.findAll({
+      where: whereCondition,
+      attributes: [
+        "panNumber",
+        [sequelize.fn("COUNT", sequelize.col("email")), "emailCount"],
+      ],
+      group: ["panNumber"],
+    });
 
     res.status(200).json(panEntries);
   } catch (error) {
@@ -206,12 +197,12 @@ const getAllUsers = async (req, res) => {
     const userId = req.params.id;
 
     // Check if the requesting user is an admin
-    const requestingUser = await User.findById(userId);
+    const requestingUser = await User.findByPk(userId);
     if (!requestingUser || !requestingUser.isAdmin) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const users = await User.find({});
+    const users = await User.findAll();
     res.status(200).json(users);
   } catch (error) {
     res
@@ -227,45 +218,36 @@ const grantAdminAccess = async (req, res) => {
     const { requestingUserId } = req.body; // Requesting user's ID
 
     // Check if the requesting user is an admin
-    const requestingUser = await User.findById(requestingUserId);
+    const requestingUser = await User.findByPk(requestingUserId);
     if (!requestingUser || !requestingUser.isAdmin) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     // Update the selected user's isAdmin status
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
+    const updatedUser = await User.update(
       { isAdmin: true },
-      { new: true }
+      { where: { id: userId }, returning: true }
     );
 
-    if (!updatedUser) {
+    if (!updatedUser[0]) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json(updatedUser);
+    res.status(200).json(updatedUser[1][0]);
   } catch (error) {
     res
       .status(500)
       .json({ message: "Error granting admin access", error: error.message });
   }
 };
-
-// Function to download emails
 const downloadEmails = async (req, res) => {
   try {
     const { panNumber } = req.params;
     const { userId } = req.query;
 
-    // Validate userId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
     // Fetch the PAN entry for the specific user
     const panEntry = await Data.findOne({
-      panNumber,
-      user: new mongoose.Types.ObjectId(userId), // Convert userId to ObjectId
+      where: { panNumber, userId },
     });
 
     if (!panEntry) {
@@ -291,13 +273,13 @@ const deleteUser = async (req, res) => {
     const { requestingUserId } = req.body; // Requesting user's ID
 
     // Check if the requesting user is an admin
-    const requestingUser = await User.findById(requestingUserId);
+    const requestingUser = await User.findByPk(requestingUserId);
     if (!requestingUser || !requestingUser.isAdmin) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     // Delete the selected user
-    const deletedUser = await User.findByIdAndDelete(userId);
+    const deletedUser = await User.destroy({ where: { id: userId } });
 
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -310,59 +292,65 @@ const deleteUser = async (req, res) => {
       .json({ message: "Error deleting user", error: error.message });
   }
 };
-
 // Submit file upload request
 const submitFileRequest = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id; // Extract userId from request params
     const file = req.file;
+    console.log(userId);
+
+    console.log("User ID:", userId); // Debug userId
+    console.log("File:", file); // Debug file
 
     if (!file) {
       return res.status(400).json({ message: "No file uploaded." });
     }
 
-    const newRequest = new FileRequest({
-      userId,
-      fileName: file.originalname,
-      filePath: file.path, // Ensure this is the correct path
-    });
+    // Ensure userId is a valid number
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID." });
+    }
 
-    await newRequest.save();
+    const newRequest = await FileRequest.create({
+      userId: parseInt(userId, 10), // Ensure userId is an integer
+      fileName: file.originalname,
+      filePath: file.path,
+    });
 
     res.status(200).json({
       message: "File upload request submitted for approval.",
-      requestId: newRequest._id,
+      requestId: newRequest.id,
     });
   } catch (error) {
     console.error("Error submitting file request:", error);
     res.status(500).json({ message: "Internal server error." });
   }
 };
-
 // Fetch pending requests for admin
 const getPendingRequests = async (req, res) => {
   try {
-    const requests = await FileRequest.find({ status: "pending" }).populate(
-      "userId",
-      "email"
-    );
+    const requests = await FileRequest.findAll({
+      where: { status: "pending" },
+      include: [{ model: User, as: "user", attributes: ["email"] }],
+    });
+
     res.status(200).json(requests);
   } catch (error) {
     console.error("Error fetching pending requests:", error);
     res.status(500).json({ message: "Internal server error." });
   }
 };
-
 const updateRequestStatus = async (req, res) => {
   try {
     const { requestId } = req.params;
+    console.log(requestId);
     const { status } = req.body;
 
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status." });
     }
 
-    const request = await FileRequest.findById(requestId);
+    const request = await FileRequest.findByPk(requestId);
     if (!request) {
       return res.status(404).json({ message: "Request not found." });
     }
@@ -418,7 +406,7 @@ const updateRequestStatus = async (req, res) => {
 
               // Skip empty rows
               if (panNumber && email) {
-                results.push({ panNumber, email });
+                results.push({ panNumber, email, userId: request.userId });
               } else {
                 console.log("Skipping row due to empty panNumber or email");
               }
@@ -463,19 +451,27 @@ const updateRequestStatus = async (req, res) => {
 // Fetch pending requests for a specific user
 const getPendingRequestsByUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
+    console.log("User ID:", userId);
 
     // Validate userId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID." });
     }
 
-    // Fetch pending requests for the specific user
-    const requests = await FileRequest.find({
-      userId,
-      status: "pending",
-    }).populate("userId", "email");
+    // Fetch pending requests with user data
+    const requests = await FileRequest.findAll({
+      where: { userId, status: "pending" },
+      include: [
+        {
+          model: User,
+          as: "user", // Ensure alias matches the association
+          attributes: ["email"],
+        },
+      ],
+    });
 
+    console.log("Requests:", requests);
     res.status(200).json(requests);
   } catch (error) {
     console.error("Error fetching pending requests for user:", error);

@@ -17,6 +17,7 @@ const SignIn = () => {
     const navigate = useNavigate();
 
     const handleLogin = async (data) => {
+        console.log("data is ", data)
         try {
             await login(data);
             navigate("/"); // Redirect to dashboard after successful login

@@ -1,5 +1,7 @@
 const { Worker } = require("worker_threads");
 const os = require("os");
+const { sequelize } = require("./config/database"); // Import Sequelize instance
+const Data = require("./models/dataSchema"); // Import Data model
 
 const processDataInBatches = async (data, userId, batchSize = 50000) => {
   const numWorkers = os.cpus().length; // Use all available CPU cores
@@ -17,7 +19,7 @@ const processDataInBatches = async (data, userId, batchSize = 50000) => {
       if (batch.length === 0) continue;
 
       const worker = new Worker("./worker.js", {
-        workerData: { batch, userId: userId.toString() }, // Ensure userId is passed as a string
+        workerData: { batch, userId: userId.toString() }, // Pass userId as a string
       });
       workers.push(worker);
 
@@ -41,4 +43,5 @@ const processDataInBatches = async (data, userId, batchSize = 50000) => {
     await Promise.all(workerPromises); // Wait for all workers to finish
   }
 };
+
 module.exports = processDataInBatches;
