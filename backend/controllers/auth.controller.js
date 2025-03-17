@@ -1,50 +1,47 @@
 const User = require("../models/userSchema"); // Import the User model
-const bcrypt = require("bcrypt");
+const OtpModel= require("../models/otpSchema.js")
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const generateTokenAndCookie = require("../utils/generateToken.js");
 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
 // Signup Controller
-const signup = async (req, res) => {
-  console.log(req.body);
+const signup = async (req, res, next) => {
+  console.log("Signup Request:", req.body);
 
   const { userName, email, password, panNumber } = req.body;
-  console.log(userName, email, password, panNumber);
 
   try {
     // Validate required fields
     if (!userName || !email || !password || !panNumber) {
-      throw new Error("All fields are required");
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    // Check if user already exists with the same email
-    const userAlreadyExists = await User.findOne({ where: { email } });
-    if (userAlreadyExists) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this email",
-      });
-    }
+    // Check if user already exists (Parallel Execution for Optimization)
+    const [existingEmail, existingUsername, existingPan] = await Promise.all([
+      User.findOne({ where: { email } }),
+      User.findOne({ where: { username: userName } }),
+      User.findOne({ where: { panNumber } }),
+    ]);
 
-    // Check if user already exists with the same username
-    const userAlreadyExistsbyUsername = await User.findOne({
-      where: { username: userName },
-    });
-    if (userAlreadyExistsbyUsername) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this username",
-      });
+    if (existingEmail) {
+      return res.status(400).json({ success: false, message: "User already exists with this email" });
     }
-
-    // Check if user already exists with the same PAN number
-    const userAlreadyExistsbyPan = await User.findOne({
-      where: { panNumber },
-    });
-    if (userAlreadyExistsbyPan) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this PAN number",
-      });
+    if (existingUsername) {
+      return res.status(400).json({ success: false, message: "User already exists with this username" });
+    }
+    if (existingPan) {
+      return res.status(400).json({ success: false, message: "User already exists with this PAN number" });
     }
 
     // Hash the password
@@ -58,12 +55,33 @@ const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    console.log("User created:", user);
+    if (!user) {
+      return res.status(500).json({ success: false, message: "User creation failed" });
+    }
+
+    // Generate OTP for verification
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    await OtpModel.create({ email, otp });
+
+    // Send OTP email (Async to avoid delaying response)
+    transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP for Account Verification",
+      html: `
+        <p>Hello ${userName},</p>
+        <h2 style="color: #4CAF50;">${otp}</h2>
+        <p>This OTP is valid for 10 minutes.</p>
+        <p>If you did not request this, please ignore this email.</p>
+      `,
+    }).then(() => console.log("OTP sent")).catch(err => console.error("OTP Email Error:", err));
 
     // Generate JWT token and set cookie
     generateTokenAndCookie(res, user.id);
 
     // Return success response
+    console.log("User created successfully:", user.id);
+    
     res.status(201).json({
       success: true,
       message: "User created successfully",
@@ -75,8 +93,44 @@ const signup = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log("Error:", error);
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Signup Error:", error);
+    next(error); // Pass to centralized error handler (if exists)
+  }
+};
+
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+
+    // Validate input
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required" });
+    }
+
+    // Find OTP record
+    const otpRecord = await OtpModel.findOne({ where: { email, otp } });
+
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // Update user verification status
+    const updatedUser = await User.update(
+      { isVerified: true },
+      { where: { email } }
+    );
+
+    if (!updatedUser[0]) {
+      return res.status(400).json({ success: false, message: "User not found or already verified" });
+    }
+
+    // Delete OTP record after successful verification
+    await OtpModel.destroy({ where: { email } });
+
+    return res.status(200).json({ success: true, message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("OTP Verification Error:", error);
+    next(error);
   }
 };
 
@@ -92,6 +146,12 @@ const login = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid credentials",
+      });
+    }
+    if (!user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is not verified",
       });
     }
 
@@ -182,4 +242,4 @@ const checkAuth = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, logout, checkAuth };
+module.exports = { signup, login, logout, checkAuth,verifyOtp };
