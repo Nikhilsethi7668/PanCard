@@ -9,6 +9,7 @@ import ProtectedAdmin from './Protected/Admin';
 import HandleUsers from './Pages/HandleUsers';
 import AdminDashboard from './Pages/AdminDashboard';
 import UserRequests from './Pages/UserRequests';
+import VerifyOtp from './Pages/VerifyOtp';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
       </Route>
       <Route path="/login" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
     </Routes>
   );
 }

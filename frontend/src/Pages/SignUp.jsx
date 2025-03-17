@@ -34,9 +34,8 @@ const SignUp = () => {
 
         try {
             await signup(signupData);
-            alert('Registration Successful!');
         } catch (error) {
-            alert(error.response.data.message);
+            alert(error?.response?.data.message);
         } finally {
             setIsSubmitting(false);
         }

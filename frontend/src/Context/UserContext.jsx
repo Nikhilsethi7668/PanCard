@@ -60,7 +60,7 @@ const UserProvider = ({ children }) => {
 
 
         } catch (error) {
-            alert("Error while logging in")
+            alert("Error while logging in",error)
             console.error("Login failed:", error);
             setError("Login failed. Please try again.");
             throw error;
@@ -93,9 +93,10 @@ const UserProvider = ({ children }) => {
         try {
             console.log("userData", userData);
             const response = await signupService(userData);
-            setUser(response.data.user);
+            setUser(response?.data?.user);
             // setIsAuthenticated(true);
             alert("Signed up successfully")
+            navigate("/verify-otp?email="+response.data.user.email);
         } catch (error) {
             console.error("Signup failed:", error.message);
             setError("Signup failed. Please try again.");
