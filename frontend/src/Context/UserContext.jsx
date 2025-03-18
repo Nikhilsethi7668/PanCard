@@ -60,7 +60,7 @@ const UserProvider = ({ children }) => {
 
 
         } catch (error) {
-            alert("Error while logging in",error)
+            alert(error)
             console.error("Login failed:", error);
             setError("Login failed. Please try again.");
             throw error;
