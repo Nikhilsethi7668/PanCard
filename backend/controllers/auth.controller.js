@@ -1,5 +1,5 @@
 const User = require("../models/userSchema"); // Import the User model
-const OtpModel= require("../models/otpSchema.js")
+const OtpModel = require("../models/otpSchema.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
@@ -24,7 +24,9 @@ const signup = async (req, res, next) => {
   try {
     // Validate required fields
     if (!userName || !email || !password || !panNumber) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
     }
 
     // Check if user already exists (Parallel Execution for Optimization)
@@ -35,13 +37,28 @@ const signup = async (req, res, next) => {
     ]);
 
     if (existingEmail) {
-      return res.status(400).json({ success: false, message: "User already exists with this email" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "User already exists with this email",
+        });
     }
     if (existingUsername) {
-      return res.status(400).json({ success: false, message: "User already exists with this username" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "User already exists with this username",
+        });
     }
     if (existingPan) {
-      return res.status(400).json({ success: false, message: "User already exists with this PAN number" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "User already exists with this PAN number",
+        });
     }
 
     // Hash the password
@@ -56,7 +73,9 @@ const signup = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(500).json({ success: false, message: "User creation failed" });
+      return res
+        .status(500)
+        .json({ success: false, message: "User creation failed" });
     }
 
     // Generate OTP for verification
@@ -64,24 +83,27 @@ const signup = async (req, res, next) => {
     await OtpModel.create({ email, otp });
 
     // Send OTP email (Async to avoid delaying response)
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP for Account Verification",
-      html: `
+    transporter
+      .sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Your OTP for Account Verification",
+        html: `
         <p>Hello ${userName},</p>
         <h2 style="color: #4CAF50;">${otp}</h2>
         <p>This OTP is valid for 10 minutes.</p>
         <p>If you did not request this, please ignore this email.</p>
       `,
-    }).then(() => console.log("OTP sent")).catch(err => console.error("OTP Email Error:", err));
+      })
+      .then(() => console.log("OTP sent"))
+      .catch((err) => console.error("OTP Email Error:", err));
 
     // Generate JWT token and set cookie
     generateTokenAndCookie(res, user.id);
 
     // Return success response
     console.log("User created successfully:", user.id);
-    
+
     res.status(201).json({
       success: true,
       message: "User created successfully",
@@ -104,14 +126,18 @@ const verifyOtp = async (req, res, next) => {
 
     // Validate input
     if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Email and OTP are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and OTP are required" });
     }
 
     // Find OTP record
     const otpRecord = await OtpModel.findOne({ where: { email, otp } });
 
     if (!otpRecord) {
-      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired OTP" });
     }
 
     // Update user verification status
@@ -121,13 +147,20 @@ const verifyOtp = async (req, res, next) => {
     );
 
     if (!updatedUser[0]) {
-      return res.status(400).json({ success: false, message: "User not found or already verified" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "User not found or already verified",
+        });
     }
 
     // Delete OTP record after successful verification
     await OtpModel.destroy({ where: { email } });
 
-    return res.status(200).json({ success: true, message: "OTP verified successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "OTP verified successfully" });
   } catch (error) {
     console.error("OTP Verification Error:", error);
     next(error);
@@ -149,15 +182,35 @@ const login = async (req, res) => {
       });
     }
     if (!user.isVerified) {
-      return res.status(400).json({
+      // Generate a new OTP
+      const otp = Math.floor(100000 + Math.random() * 900000);
+
+      // Update or create OTP record in the database
+      await OtpModel.upsert({ email, otp });
+
+      // Send OTP email
+      transporter
+        .sendMail({
+          from: process.env.EMAIL_USER,
+          to: user.email,
+          subject: "Your OTP for Account Verification",
+          html: `
+          <p>Hello ${user.username},</p>
+          <h2 style="color: #4CAF50;">${otp}</h2>
+          <p>This OTP is valid for 10 minutes.</p>
+          <p>If you did not request this, please ignore this email.</p>
+        `,
+        })
+        .then(() => console.log("OTP resent"))
+        .catch((err) => console.error("OTP Resend Error:", err));
+      return res.status(200).json({
         success: false,
-        message: "Email is not verified",
+        message: "Email is not verified. OTP has been resent.",
+        status: "unverified",
+        email:user.email
       });
     }
 
-    // Validate password
-    // console.log("givenb pass", password);
-    // console.log("user pass", user.password);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       console.log(isPasswordValid);
@@ -169,7 +222,6 @@ const login = async (req, res) => {
 
     console.log("User logged in:", user);
 
-    // Generate JWT token and set cookie
     generateTokenAndCookie(res, user.id);
 
     // Update last login timestamp
@@ -242,4 +294,4 @@ const checkAuth = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, logout, checkAuth,verifyOtp };
+module.exports = { signup, login, logout, checkAuth, verifyOtp };

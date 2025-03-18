@@ -22,9 +22,11 @@ const HandleUsers = () => {
     };
 
     const handleAdminAccess = async (userId) => {
+        console.log(userId);
+        
         try {
             await Axios.post(`/data/grant-admin-access/${userId}`, {
-                requestingUserId: user._id, // Pass the requesting user's ID
+                requestingUserId: user.id, // Pass the requesting user's ID
             });
             fetchAllUsers(); // Refresh the list after granting admin access
             alert('Admin access granted successfully!');

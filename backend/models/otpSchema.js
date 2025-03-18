@@ -15,6 +15,10 @@ const Otp = sequelize.define("Otp", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  createdAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
 });
 
 module.exports = Otp;

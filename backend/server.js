@@ -4,7 +4,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const Queue = require("bull");
-
+require("./utils/remove-unverified-user.js");
 // Load environment variables
 dotenv.config();
 
@@ -35,7 +35,7 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
     console.log("✅ Connected to MySQL database.");
 
     // Sync all models with the database
-    await sequelize.sync({ alter: true });
+     await sequelize.sync({ alter: true });
     console.log("✅ All models were synchronized successfully.");
 
     // Start the Server after DB sync
