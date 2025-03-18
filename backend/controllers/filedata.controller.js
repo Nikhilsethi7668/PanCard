@@ -7,6 +7,7 @@ const processDataInBatches = require("../processDataInBatches");
 const mongoose = require("mongoose");
 const FileRequest = require("../models/fileRequests");
 const path = require("path");
+const PanEmailData = require("../models/panEmailDataSchema");
 
 let fileQueue;
 
@@ -125,14 +126,34 @@ const uploadFile = async (req, res) => {
 const getData = async (req, res) => {
   try {
     const panNumber = req.params.panNumber;
-    const { page = 1, limit = 100 } = req.query;
+    const { page = 1, limit = 100, type } = req.query;
     const offset = (page - 1) * limit;
     const userId = req.query.userId;
-
+    const user = await User.findByPk(userId);
+    if (!user) {
+      console.log("No User Exists");
+      return res.status(400).json({ message: "User doesn't exist" });
+    }
+    if (!type) {
+      return res.status(400).json({ message: "Type is required" });
+    }
     // Find the PAN entry for the specific user
-    const panEntry = await Data.findOne({
-      where: { panNumber, userId },
-    });
+    let panEntry = {};
+    if (user.isAdmin) {
+     if(type=="approved-entries"){ panEntry = await Data.findOne({
+        where: { panNumber },
+      });}
+     if(type=="users"){ panEntry = await User.findOne({
+        where: { panNumber },
+      });}
+     if(type=="other"){ panEntry = await PanEmailData.findOne({
+        where: { panNumber },
+      });}
+    } else {
+      panEntry = await Data.findOne({
+        where: { panNumber, userId },
+      });
+    }
 
     if (!panEntry) {
       return res
@@ -141,7 +162,9 @@ const getData = async (req, res) => {
     }
 
     // Paginate the emails
-    const emails = panEntry.email.slice(offset, offset + parseInt(limit));
+    console.log(panEntry);
+
+    const emails = panEntry?.email.slice(offset, offset + parseInt(limit));
 
     res.status(200).json({
       panNumber: panEntry.panNumber,
@@ -181,8 +204,32 @@ const allpan = async (req, res) => {
       ],
       group: ["panNumber"],
     });
+    let usersDetails = [];
+    let PanEmailDataEntries = [];
+    if (user.isAdmin) {
+      usersDetails = await User.findAll({
+        attributes: [
+          "panNumber",
+          [sequelize.fn("COUNT", sequelize.col("email")), "emailCount"],
+        ],
+        group: ["panNumber"],
+      });
+      PanEmailDataEntries = await PanEmailData.findAll({
+        attributes: [
+          "panNumber",
+          [sequelize.fn("COUNT", sequelize.col("Emails")), "emailCount"],
+        ],
+        group: ["panNumber"],
+      });
+    }
 
-    res.status(200).json(panEntries);
+    res
+      .status(200)
+      .json({
+        panEntries: panEntries,
+        userDetails: usersDetails,
+        PanEmailDataEntries: PanEmailDataEntries,
+      });
   } catch (error) {
     console.error("Error fetching PAN entries:", error);
     res
@@ -229,7 +276,7 @@ const grantAdminAccess = async (req, res) => {
       { where: { id: userId }, returning: true }
     );
 
-    if (!updatedUser[0]) {
+    if (!updatedUser[1]) {
       return res.status(404).json({ message: "User not found" });
     }
 
@@ -243,12 +290,21 @@ const grantAdminAccess = async (req, res) => {
 const downloadEmails = async (req, res) => {
   try {
     const { panNumber } = req.params;
-    const { userId } = req.query;
+    const { userId,type } = req.query;
 
     // Fetch the PAN entry for the specific user
-    const panEntry = await Data.findOne({
-      where: { panNumber, userId },
-    });
+    const user = await User.findByPk(userId);
+    const whereCondition = user.isAdmin ? {} : { userId };
+    let panEntry = {}
+    if(type=="approved-entries"){ 
+      panEntry= await Data.findOne({
+      where: { panNumber,...whereCondition },
+    });}
+    if(type=="other"){
+      panEntry= await PanEmailData.findOne({
+        where: { panNumber},
+      });
+    }
 
     if (!panEntry) {
       return res

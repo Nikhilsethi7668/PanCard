@@ -1,6 +1,6 @@
 const { Sequelize } = require("sequelize");
 
-const sequelize = new Sequelize("PanEmailDB", "root", "India_123", {
+const sequelize = new Sequelize("PanEmailDB", "adarsh", "Adarsh@1234", {
   host: "66.94.120.78", // IP address of your Ubuntu server
   dialect: "mysql",
   port: 3306, // Default MySQL port

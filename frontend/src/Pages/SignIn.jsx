@@ -14,13 +14,11 @@ const validationSchema = Yup.object({
 const SignIn = () => {
     const { login, loading, user, logout, isAuthenticated } = useContext(UserContext);
     const [errorMessage, setErrorMessage] = useState("");
-    const navigate = useNavigate();
 
     const handleLogin = async (data) => {
         console.log("data is ", data)
         try {
             await login(data);
-            navigate("/"); // Redirect to dashboard after successful login
         } catch (error) {
             console.error("Login error:", error);
             setErrorMessage("Invalid email or password");
