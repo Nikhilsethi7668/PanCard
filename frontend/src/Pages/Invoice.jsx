@@ -1,10 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
-import SendInvoiceDialog from "../Components/invoice/SendInvoiceDialog";
+
 import { FiDownload } from "react-icons/fi";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { UserContext } from "../Context/UserContext";
 import Axios from "../Lib/Axios";
+import SendInvoiceDialog from "../Components/invoice/SendInvoiceDialog";
 
 const Invoice = () => {
   const { user } = useContext(UserContext);
@@ -109,7 +110,7 @@ const Invoice = () => {
     }
   };
   useEffect(() => {
-    if(user.isAdmin){fetchAllUsers();}
+    if (user.isAdmin) { fetchAllUsers(); }
     return
   }, []);
 
@@ -278,13 +279,12 @@ const Invoice = () => {
                   <FiDownload strokeWidth={3} />
                 </div>
                 <span
-                  className={`px-2 py-1 rounded text-xs ${
-                    invoice.paymentStatus === "Paid"
-                      ? "bg-green-100 text-green-700"
-                      : invoice.paymentStatus === "Unpaid"
+                  className={`px-2 py-1 rounded text-xs ${invoice.paymentStatus === "Paid"
+                    ? "bg-green-100 text-green-700"
+                    : invoice.paymentStatus === "Unpaid"
                       ? "bg-red-100 text-red-700"
                       : "bg-yellow-100 text-yellow-700"
-                  }`}
+                    }`}
                 >
                   {invoice.paymentStatus}
                 </span>

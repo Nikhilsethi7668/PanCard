@@ -53,3 +53,4 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
 // Routes
 app.use("/api", dataRoutes(fileQueue)); // Pass fileQueue to routes
 app.use("/api/auth", authRoutes);
+app.use("/api/invoice",)
