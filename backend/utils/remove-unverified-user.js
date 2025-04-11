@@ -5,13 +5,13 @@ const OtpModel = require("../models/otpSchema");
 
 const cleanupExpiredData = async () => {
   try {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000); 
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
     await User.destroy({
       where: {
         isVerified: false,
         lastLogin: {
-          [Op.lt]: tenMinutesAgo, 
+          [Op.lt]: tenMinutesAgo,
         },
       },
     });

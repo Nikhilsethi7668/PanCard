@@ -35,7 +35,7 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
     console.log("✅ Connected to MySQL database.");
 
     // Sync all models with the database
-     await sequelize.sync({ alter: true });
+    await sequelize.sync({ alter: true });
     console.log("✅ All models were synchronized successfully.");
 
     // Start the Server after DB sync
