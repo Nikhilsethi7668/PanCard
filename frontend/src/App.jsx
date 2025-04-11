@@ -10,6 +10,7 @@ import HandleUsers from './Pages/HandleUsers';
 import AdminDashboard from './Pages/AdminDashboard';
 import UserRequests from './Pages/UserRequests';
 import VerifyOtp from './Pages/VerifyOtp';
+import Invoice from './Pages/Invoice';
 
 function App() {
   return (
@@ -33,6 +34,9 @@ function App() {
           <ProtectedAdmin>
             <AdminDashboard />
           </ProtectedAdmin>
+        } />
+        <Route path="invoice" element={
+            <Invoice />
         } />
         <Route path="user-requests" element={<UserRequests />} />
       </Route>

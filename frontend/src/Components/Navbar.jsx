@@ -29,6 +29,7 @@ const Navbar = () => {
                 <div className="hidden md:flex space-x-6">
                     <Link to="/" className="text-white hover:text-gray-200 transition">PanData</Link>
                     <Link to="/upload" className="text-white hover:text-gray-200 transition">UploadFile</Link>
+                    <Link to="/invoice" className="text-white hover:text-gray-200 transition">Invoice</Link>
                     {user.isAdmin && (
                         <>
                             <Link to="/admin-dashboard" className="text-white hover:text-gray-200 transition">Admin Dashboard</Link>
