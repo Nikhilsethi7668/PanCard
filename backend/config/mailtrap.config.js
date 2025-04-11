@@ -1,19 +1,24 @@
-import { MailtrapClient } from "mailtrap";
-import dotenv from "dotenv";
-
+const { MailtrapClient } = require("mailtrap");
+const dotenv = require("dotenv");
 dotenv.config();
 
-const TOKEN ="8d67e11c213af306cff2e5b461cc94e0";
-const ENDPOINT = "https://send.api.mailtrap.io";
+// It's better to get these from environment variables
+const TOKEN = process.env.MAILTRAP_TOKEN || "8d67e11c213af306cff2e5b461cc94e0";
+const ENDPOINT =
+  process.env.MAILTRAP_ENDPOINT || "https://send.api.mailtrap.io";
 
-export const client = new MailtrapClient({
+const client = new MailtrapClient({
   token: TOKEN,
-  endpoint:ENDPOINT
+  endpoint: ENDPOINT,
 });
 
-export const sender = {
+const sender = {
   email: "hello@grantshub.ca",
   name: "Mailtrap Test",
 };
 
-  
+// Export if you're using this in other files
+module.exports = {
+  client,
+  sender,
+};
