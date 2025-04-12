@@ -18,6 +18,7 @@ app.use(cookieParser());
 const PORT = process.env.PORT || 4000;
 const corseConnection = [
   "http://localhost:5173",
+  "https://panemail.amiigo.in",
   "https://pancard-1-3vgg.onrender.com",
 ];
 
