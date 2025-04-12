@@ -57,4 +57,4 @@ app.use("/api", dataRoutes(fileQueue)); // Pass fileQueue to routes
 app.use("/api/auth", authRoutes);
 
 // Add after other middleware but before error handling
-app.use("/api/invoices", invoiceRoutes);
+app.use("/api/invoice", invoiceRoutes);
