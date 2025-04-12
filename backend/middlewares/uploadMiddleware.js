@@ -1,5 +1,5 @@
 const multer = require("multer");
-const { BadRequestError } = require("../errors"); // Create this error class if needed
+const { BadRequestError } = require("../errors");
 
 const memoryStorage = multer.memoryStorage();
 
@@ -13,7 +13,6 @@ const fileFilter = (req, file, cb) => {
     "text/comma-separated-values",
     "text/x-comma-separated-values",
   ];
-
   if (!allowedMimeTypes.includes(file.mimetype)) {
     return cb(new BadRequestError("Only CSV files are allowed"), false);
   }
@@ -23,22 +22,14 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: memoryStorage,
   fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-    files: 1, // Only allow single file upload
-  },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 
-// Add error handling wrapper
 const handleUploadErrors = (req, res, next) => {
   upload.single("csv")(req, res, (err) => {
-    if (err) {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          return next(new BadRequestError("File size exceeds 5MB limit"));
-        }
-        return next(new BadRequestError("File upload error"));
-      }
+    if (err instanceof multer.MulterError) {
+      return next(new BadRequestError("File upload error: " + err.message));
+    } else if (err) {
       return next(err);
     }
     next();

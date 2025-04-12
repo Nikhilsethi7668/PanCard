@@ -5,6 +5,8 @@ const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const Queue = require("bull");
 require("./utils/remove-unverified-user.js");
+// Import the invoice routes
+const invoiceRoutes = require("./routes/invoiceRoutes");
 // Load environment variables
 dotenv.config();
 
@@ -53,4 +55,6 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
 // Routes
 app.use("/api", dataRoutes(fileQueue)); // Pass fileQueue to routes
 app.use("/api/auth", authRoutes);
-app.use("/api/invoice",)
+
+// Add after other middleware but before error handling
+app.use("/api/invoices", invoiceRoutes);

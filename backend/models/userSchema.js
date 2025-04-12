@@ -39,5 +39,15 @@ const User = sequelize.define("User", {
     defaultValue: DataTypes.NOW,
   },
 });
+// models/User.js
+// Add this method to your User model
+User.prototype.getUnreadInvoicesCount = async function () {
+  return await Invoice.count({
+    where: {
+      userId: this.id,
+      isRead: false,
+    },
+  });
+};
 
 module.exports = User;
