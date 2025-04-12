@@ -4,7 +4,7 @@ import React from 'react'
 const Axios = axios.create({
     baseURL: "https://panemail-api.amiigo.in/api",
     withCredentials: true,
-    timeout: 5000,
+    timeout: 10000,
     headers: {
         "Content-Type": "application/json"
     }
