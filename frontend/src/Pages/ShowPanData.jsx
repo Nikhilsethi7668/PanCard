@@ -23,7 +23,7 @@ const ShowPanData = () => {
     try {
         setLoading(true)
       const response = await Axios.get(
-        `/api/pan-entries/${user.id}`
+        `/pan-entries/${user.id}`
       );
       setPanEntries(response.data);
     } catch (error) {
