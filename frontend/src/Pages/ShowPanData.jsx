@@ -40,7 +40,7 @@ const ShowPanData = () => {
     const fetchEmails = async () => {
       try {
         const response = await Axios.get(
-          `/api/data/${selectedPan}`,
+          `/data/${selectedPan}`,
           {
             params: {
               page: currentPage,
