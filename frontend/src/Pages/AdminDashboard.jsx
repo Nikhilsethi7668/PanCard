@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import Axios from '../Lib/Axios';
 
 const AdminDashboard = () => {
     const [requests, setRequests] = useState([]);
@@ -7,7 +7,7 @@ const AdminDashboard = () => {
     // Fetch pending requests
     const fetchPendingRequests = async () => {
         try {
-            const response = await axios.get('http://localhost:4000/api/upload/requests/pending');
+            const response = await Axios.get('/upload/requests/pending');
             setRequests(response.data);
         } catch (error) {
             console.error('Error fetching pending requests:', error);
@@ -18,7 +18,7 @@ const AdminDashboard = () => {
     const handleApproveReject = async (requestId, status) => {
         try {
             // console.log("requestId", requestId)
-            await axios.put(`http://localhost:4000/api/upload/requests/${requestId}`, { status });
+            await Axios.put(`/upload/requests/${requestId}`, { status });
             fetchPendingRequests(); // Refresh the list after updating status
         } catch (error) {
             console.error('Error updating request status:', error);

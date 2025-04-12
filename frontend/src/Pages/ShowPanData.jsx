@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
-import axios from "axios";
 import { UserContext } from "../Context/UserContext";
 import { FaDownload } from "react-icons/fa";
 import { FiLoader } from "react-icons/fi";
+import Axios from "../Lib/Axios";
 
 const ShowPanData = () => {
   const [panEntries, setPanEntries] = useState([]);
@@ -22,8 +22,8 @@ const ShowPanData = () => {
   const fetchPanEntries = async () => {
     try {
         setLoading(true)
-      const response = await axios.get(
-        `http://localhost:4000/api/pan-entries/${user.id}`
+      const response = await Axios.get(
+        `/api/pan-entries/${user.id}`
       );
       setPanEntries(response.data);
     } catch (error) {
@@ -39,8 +39,8 @@ const ShowPanData = () => {
 
     const fetchEmails = async () => {
       try {
-        const response = await axios.get(
-          `http://localhost:4000/api/data/${selectedPan}`,
+        const response = await Axios.get(
+          `/api/data/${selectedPan}`,
           {
             params: {
               page: currentPage,
@@ -64,7 +64,7 @@ const ShowPanData = () => {
 
   const downloadData = async (panNumber) => {
     try {
-      const response = await axios.get(
+      const response = await Axios.get(
         `http://localhost:4000/api/data/${panNumber}/download`,
         {
           params: { userId: user.id,type:selectedDownloadType },

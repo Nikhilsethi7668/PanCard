@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
-import axios from 'axios';
 import { UserContext } from '../Context/UserContext';
+import Axios from '../Lib/Axios';
 
 const UserRequests = () => {
     const { user } = useContext(UserContext);
@@ -9,7 +9,7 @@ const UserRequests = () => {
     // Fetch user's file upload requests
     const fetchUserRequests = async () => {
         try {
-            const response = await axios.get(`http://localhost:4000/api/upload/requests/pending/${user.id}`);
+            const response = await Axios.get(`/api/upload/requests/pending/${user.id}`);
             setRequests(response.data);
         } catch (error) {
             console.error('Error fetching user requests:', error);

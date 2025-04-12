@@ -1,8 +1,8 @@
 import React, { useContext, useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../Context/UserContext';
 import Loader from '../Components/Loader';
+import Axios from '../Lib/Axios';
 
 const UploadFile = () => {
     const [file, setFile] = useState(null);
@@ -30,8 +30,8 @@ const UploadFile = () => {
 
         try {
             // Ensure user.id is passed (MySQL uses numeric IDs)
-            const response = await axios.post(
-                `http://localhost:4000/api/upload/${user.id}`, // Use user.id instead of user._id
+            const response = await Axios.post(
+                `/api/upload/${user.id}`, // Use user.id instead of user._id
                 formData,
                 {
                     headers: { 'Content-Type': 'multipart/form-data' },
