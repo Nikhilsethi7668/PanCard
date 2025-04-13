@@ -8,7 +8,7 @@ module.exports = (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_Token);
     req.user = { userId: payload.userId, isAdmin: payload.isAdmin };
     next();
   } catch (error) {
