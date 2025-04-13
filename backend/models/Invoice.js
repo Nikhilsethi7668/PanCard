@@ -15,7 +15,7 @@ const Invoice = sequelize.define(
       allowNull: false,
     },
     panNumber: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(10),
       allowNull: false,
     },
     billAmount: {
@@ -42,10 +42,6 @@ const Invoice = sequelize.define(
       type: DataTypes.ENUM("pending", "paid", "overdue"),
       defaultValue: "pending",
     },
-    notes: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
     isRead: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -55,12 +51,5 @@ const Invoice = sequelize.define(
     timestamps: true,
   }
 );
-
-Invoice.associate = (models) => {
-  Invoice.belongsTo(models.User, {
-    foreignKey: "userId",
-    as: "user",
-  });
-};
 
 module.exports = Invoice;

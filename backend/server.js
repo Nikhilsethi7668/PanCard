@@ -33,22 +33,25 @@ app.use(express.json());
 const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
 
 // Database Connection & Sync
+// Database Connection & Sync
+// server.js - Modify your sync code
+// Remove any existing sync/alter code and replace with:
+
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log("✅ Connected to MySQL database.");
+    console.log("✅ Database connection established.");
 
-    // Sync all models with the database
-    await sequelize.sync({ alter: true });
-    console.log("✅ All models were synchronized successfully.");
+    // Create tables if they don't exist
+    await sequelize.sync({ force: true }); // Only for development!
+    console.log("✅ Tables created successfully.");
 
-    // Start the Server after DB sync
     app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("❌ Error connecting to the database:", error);
-    process.exit(1); // Exit process if DB connection fails
+    console.error("❌ Database connection failed:", error);
+    process.exit(1);
   }
 })();
 

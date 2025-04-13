@@ -142,7 +142,7 @@ const Invoice = () => {
 
   const fetchInvoices = async (filters) => {
     try {
-      const response = await Axios.get("/api/invoices", {
+      const response = await Axios.get("/invoices", {
         params: filters,
       });
 
