@@ -43,7 +43,7 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
     console.log("✅ Database connection established.");
 
     // Create tables if they don't exist
-    sequelize.sync();
+    sequelize.sync({force:true});
     console.log("✅ Tables created successfully.");
 
     app.listen(PORT, () => {
