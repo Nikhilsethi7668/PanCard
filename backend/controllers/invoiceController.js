@@ -1,7 +1,8 @@
-const { Invoice, User } = require("../models");
+const db = require("../models");
 const csv = require("csv-parser");
 const stream = require("stream");
 const { Op } = require("sequelize");
+const Invoice = require("../models/Invoice");
 
 exports.sendInvoice = async (req, res) => {
   try {
@@ -27,47 +28,64 @@ exports.sendInvoice = async (req, res) => {
     for (const row of results) {
       try {
         // Validate required fields
-        if (
-          !row["pan number"] ||
-          !row["bill amount"] ||
-          !row["taxes"] ||
-          !row["total bill amount"]
-        ) {
-          errors.push(`Missing fields in row: ${JSON.stringify(row)}`);
+        const requiredFields = [
+          "panNumber",
+          "billToName",
+          "taxType",
+          "taxPercentage",
+          "taxAmount",
+          "totalWithoutTax",
+          "total",
+          "dueDate",
+        ];
+
+        const missingFields = requiredFields.filter(
+          (field) => !row[field] || row[field].trim() === ""
+        );
+
+        if (missingFields.length) {
+          errors.push(
+            `Missing required fields [${missingFields.join(", ")}] in row: ${JSON.stringify(row)}`
+          );
           continue;
         }
 
+        
         // Find user by PAN
-        const user = await User.findOne({
-          where: { panNumber: row["pan number"].trim() },
+        const user = await db.User.findOne({
+          where: { panNumber:row["panNumber"].trim() },
         });
 
         if (!user) {
-          errors.push(`User not found for PAN: ${row["pan number"]}`);
+          errors.push(`User not found for PAN: ${row["panNumber"]}`);
           continue;
         }
-
-        // Calculate due date (15 days from now)
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 15);
-
+        console.log("user pan:", user.panNumber ,"id", user.id);
         // Create invoice
         const invoice = await Invoice.create({
-          panNumber: row["pan number"].trim(),
-          billAmount: parseFloat(row["bill amount"]),
-          taxes: parseFloat(row["taxes"]),
-          totalBillAmount: parseFloat(row["total bill amount"]),
-          invoiceNumber: `INV-${Date.now()}-${Math.floor(
-            Math.random() * 1000
-          )}`,
-          dueDate,
+          invoiceNumber: row["invoiceNumber"] || `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          invoiceDate: row["invoiceDate"] ? new Date(row["invoiceDate"]) : new Date(),
+          dueDate: new Date(row["dueDate"]),
+          billToName: row["billToName"],
+          billToCompany: row["billToCompany"] || null,
+          billToAddress: row["billToAddress"] || null,
+          billToEmail: row["billToEmail"] || null,
+          panNumber: row["panNumber"].trim(),
+          taxType: row["taxType"],
+          taxPercentage: parseFloat(row["taxPercentage"]),
+          taxAmount: parseFloat(row["taxAmount"]),
+          totalWithoutTax: parseFloat(row["totalWithoutTax"]),
+          total: parseFloat(row["total"]),
+          notes: row["notes"] || null,
+          paymentStatus: row["paymentStatus"]?.toLowerCase() || "pending",
+          isRead: false,
           userId: user.id,
         });
 
         processedInvoices.push(invoice);
       } catch (error) {
         errors.push(
-          `Error processing PAN ${row["pan number"]}: ${error.message}`
+          `Error processing PAN ${row["panNumber"]}: ${error.message}`
         );
       }
     }
@@ -83,20 +101,28 @@ exports.sendInvoice = async (req, res) => {
   }
 };
 
+
 exports.getAllInvoices = async (req, res) => {
   try {
-    const { month, year } = req.query;
-    const where = {};
-
+    console.log(req.user);
+    const {isAdmin,userId}=req.user;
+    const { month, year,userid } = req.query;
+    let where = {};
+    if(isAdmin&&userid){
+      where = {userId:userid};
+    }
+    if(!isAdmin){
+      where = {userId}
+    }
     if (month && year) {
       where.invoiceDate = {
         [Op.and]: [
-          sequelize.where(
-            sequelize.fn("MONTH", sequelize.col("invoiceDate")),
+          db.sequelize.where(
+            db.sequelize.fn("MONTH", db.sequelize.col("invoiceDate")),
             month
           ),
-          sequelize.where(
-            sequelize.fn("YEAR", sequelize.col("invoiceDate")),
+          db.sequelize.where(
+            db.sequelize.fn("YEAR", db.sequelize.col("invoiceDate")),
             year
           ),
         ],
@@ -107,7 +133,8 @@ exports.getAllInvoices = async (req, res) => {
       where,
       include: [
         {
-          model: User,
+          model: db.User,
+          as: "user",
           attributes: ["id", "username", "email", "panNumber"],
         },
       ],
@@ -116,6 +143,8 @@ exports.getAllInvoices = async (req, res) => {
 
     res.json(invoices);
   } catch (error) {
+    console.log(error);
+    
     res.status(500).json({ error: error.message });
   }
 };
@@ -130,12 +159,12 @@ exports.getUserInvoices = async (req, res) => {
     if (month && year) {
       where.invoiceDate = {
         [Op.and]: [
-          sequelize.where(
-            sequelize.fn("MONTH", sequelize.col("invoiceDate")),
+          db.sequelize.where(
+            db.sequelize.fn("MONTH", sequelize.col("invoiceDate")),
             month
           ),
-          sequelize.where(
-            sequelize.fn("YEAR", sequelize.col("invoiceDate")),
+          db.sequelize.where(
+            db.sequelize.fn("YEAR", sequelize.col("invoiceDate")),
             year
           ),
         ],

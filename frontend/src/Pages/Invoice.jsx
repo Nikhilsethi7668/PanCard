@@ -11,94 +11,11 @@ const Invoice = () => {
   const { user } = useContext(UserContext);
   const currentYear = new Date().getFullYear().toString();
   const [filters, setFilters] = useState({
-    userId: user.isAdmin ? "" : user.id,
+    userid: user.isAdmin ? "" : user.id,
     month: "",
     year: currentYear,
   });
-  const [invoices, setInvoices] = useState([
-    {
-      invoiceNumber: "INV-2025-0001",
-      invoiceDate: "2025-04-01",
-      dueDate: "2025-04-10",
-      billToName: "Riya Sharma",
-      billToCompany: "Sharma Enterprises",
-      billToAddress: "Block A, Sector 18, Noida, UP",
-      billToEmail: "riya@sharmaenterprises.in",
-      taxType: "GST",
-      taxPercentage: 18,
-      taxAmount: 1800,
-      totalWithoutTax: 10000,
-      total: 11800,
-      notes: "Pay via UPI or bank transfer.",
-      paymentStatus: "Paid",
-    },
-    {
-      invoiceNumber: "INV-2025-0002",
-      invoiceDate: "2025-04-02",
-      dueDate: "2025-04-12",
-      billToName: "Arjun Patel",
-      billToCompany: "Patel Tech",
-      billToAddress: "MG Road, Pune, Maharashtra",
-      billToEmail: "arjun@pateltech.co",
-      taxType: "IGST",
-      taxPercentage: 18,
-      taxAmount: 2700,
-      totalWithoutTax: 10000,
-      total: 17700,
-      notes: "Kindly clear the dues ASAP.",
-      paymentStatus: "Unpaid",
-    },
-    {
-      invoiceNumber: "INV-2025-0003",
-      invoiceDate: "2025-04-05",
-      dueDate: "2025-04-15",
-      billToName: "Neha Verma",
-      billToCompany: "Verma & Co.",
-      billToAddress: "DLF Phase 3, Gurugram, Haryana",
-      billToEmail: "neha@vermacorp.com",
-      taxType: "GST",
-      taxPercentage: 12,
-      taxAmount: 1200,
-      totalWithoutTax: 10000,
-      total: 11200,
-      notes: "Service includes design consultation.",
-      paymentStatus: "Pending",
-    },
-    {
-      invoiceNumber: "INV-2025-0004",
-      invoiceDate: "2025-04-08",
-      dueDate: "2025-04-18",
-      billToName: "Mohit Singh",
-      billToCompany: "Singh Logistics",
-      billToAddress: "NH 24, Lucknow, Uttar Pradesh",
-      billToEmail: "mohit@singhlogistics.in",
-      taxType: "GST",
-      taxPercentage: 5,
-      taxAmount: 500,
-      totalWithoutTax: 10000,
-      total: 10500,
-      notes: "Delivery charges included.",
-      paymentStatus: "Paid",
-    },
-    {
-      invoiceNumber: "INV-2025-0005",
-      invoiceDate: "2025-04-10",
-      dueDate: "2025-04-25",
-      billToName: "Kavita Joshi",
-      billToCompany: "Joshi Artworks",
-      billToAddress: "Bandra West, Mumbai, Maharashtra",
-      billToEmail: "kavita@joshiartworks.com",
-      taxType: "SGST+CGST",
-      taxPercentage: 18,
-      taxAmount: 3600,
-      totalWithoutTax: 20000,
-      total: 23600,
-      notes: "Final payment for project delivery.",
-      paymentStatus: "Overdue",
-    },
-  ]);
-  console.log(user);
-
+  const [invoices, setInvoices] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const fetchAllUsers = async () => {
     try {
@@ -114,12 +31,7 @@ const Invoice = () => {
     return
   }, []);
 
-  const users = [
-    { id: "1", name: "Riya Sharma" },
-    { id: "2", name: "Amit Verma" },
-    { id: "3", name: "Sneha Patil" },
-  ];
-
+  
   const months = [
     { value: "01", label: "January" },
     { value: "02", label: "February" },
@@ -142,11 +54,11 @@ const Invoice = () => {
 
   const fetchInvoices = async (filters) => {
     try {
-      const response = await Axios.get("/invoices", {
+      const response = await Axios.get("/invoice/get", {
         params: filters,
       });
 
-      return response.data.invoices;
+      return response.data;
     } catch (error) {
       console.error("Error fetching invoices:", error);
       return [];
@@ -155,10 +67,8 @@ const Invoice = () => {
 
   useEffect(() => {
     if (filters.userId || filters.month || filters.year) {
-      fetchInvoices(filters).then((data) => {
-        if (data && data.length > 0) {
+      fetchInvoices(filters).then((data) => {        
           setInvoices(data);
-        }
       });
     }
   }, [filters]);
@@ -166,6 +76,17 @@ const Invoice = () => {
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
+
+
+  const markRead =async(id)=>{
+    try {
+      await Axios.put("/invoice/mark-read/"+id);
+      fetchInvoices(filters)
+    } catch (error) {
+      console.error("Error reading invoices:", error);
+      return;
+    }
+  }
 
   const generatePDF = (invoice) => {
     const doc = new jsPDF();
@@ -204,9 +125,11 @@ const Invoice = () => {
       14,
       doc.lastAutoTable.finalY + 18
     );
-
+    markRead(invoice.id)
     doc.save(`${invoice.invoiceNumber}.pdf`);
   };
+
+
 
   return (
     <div className="w-full lg:max-w-2xl px-4 mx-auto mt-10">
@@ -217,13 +140,13 @@ const Invoice = () => {
       <div className="flex flex-wrap gap-4 mt-4">
         {user.isAdmin && (
           <select
-            name="userId"
+            name="userid"
             onChange={handleFilterChange}
             className="border px-3 py-1 rounded"
           >
             <option value="">Select User</option>
             {allUsers?.map((u) => (
-              <option key={u._id} value={u._id}>
+              <option key={u.id} value={u.id}>
                 {u.username}
               </option>
             ))}
@@ -273,15 +196,15 @@ const Invoice = () => {
                   onClick={() => generatePDF(invoice)}
                   className="flex gap-1 hover:underline cursor-pointer text-white hover:text-black items-center"
                 >
-                  <h2 className="text-lg text-black font-semibold">
+                 {!invoice.isRead&&<span className="h-2 w-2 rounded bg-green-500"></span>} <h2 className="text-lg text-black font-semibold">
                     {invoice.invoiceNumber}
                   </h2>
                   <FiDownload strokeWidth={3} />
                 </div>
                 <span
-                  className={`px-2 py-1 rounded text-xs ${invoice.paymentStatus === "Paid"
+                  className={`px-2 py-1 rounded text-xs ${invoice.paymentStatus === "paid"
                     ? "bg-green-100 text-green-700"
-                    : invoice.paymentStatus === "Unpaid"
+                    : invoice.paymentStatus === "overdue"
                       ? "bg-red-100 text-red-700"
                       : "bg-yellow-100 text-yellow-700"
                     }`}

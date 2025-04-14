@@ -12,7 +12,7 @@ router.post(
   invoiceController.sendInvoice
 );
 
-router.get("/all", authMiddleware, invoiceController.getAllInvoices);
+router.get("/get", authMiddleware, invoiceController.getAllInvoices);
 
 // User routes
 router.get("/user/:userId", authMiddleware, invoiceController.getUserInvoices);

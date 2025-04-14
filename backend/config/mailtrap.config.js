@@ -3,9 +3,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 // It's better to get these from environment variables
-const TOKEN = process.env.MAILTRAP_TOKEN || "8d67e11c213af306cff2e5b461cc94e0";
-const ENDPOINT =
-  process.env.MAILTRAP_ENDPOINT || "https://send.api.mailtrap.io";
+const TOKEN = "8d67e11c213af306cff2e5b461cc94e0";
+const ENDPOINT = "https://send.api.mailtrap.io";
 
 const client = new MailtrapClient({
   token: TOKEN,
