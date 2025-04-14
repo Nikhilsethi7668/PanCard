@@ -33,29 +33,8 @@ const Otp = sequelize.define(
     },
   },
   {
-    tableName: "otps",
-    indexes: [
-      {
-        fields: ["email"],
-        name: "otp_email_index",
-      },
-      {
-        fields: ["expiresAt"],
-        name: "otp_expiry_index",
-      },
-    ],
-    timestamps: true,
-    createdAt: "createdAt",
-    updatedAt: false,
-    hooks: {
-      beforeCreate: (otp) => {
-        if (!otp.expiresAt) {
-          otp.expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        }
-      },
-    },
-  }
-);
+    timestamps: true, 
+  })
 
 // Initialize table with retry logic
 Otp.initTable = async (maxRetries = 3) => {
