@@ -26,6 +26,11 @@ const Otp = sequelize.define(
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      defaultValue: () => {
+        const date = new Date();
+        date.setMinutes(date.getMinutes() + 10); 
+        return date;
+      }
     },
     used: {
       type: DataTypes.BOOLEAN,
