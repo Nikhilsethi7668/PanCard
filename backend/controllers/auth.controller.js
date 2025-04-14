@@ -1,31 +1,58 @@
 const User = require("../models/userSchema");
-const OtpModel = require("../models/otpSchema.js");
+const OtpModel = require("../models/otpSchema");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { client, sender } = require("../config/mailtrap.config.js");
 const generateTokenAndCookie = require("../utils/generateToken.js");
+const { sequelize } = require("../models");
+const { Op } = require("sequelize");
 
-// Utility function for sending OTP emails
-const sendOtpEmail = async (email, userName, otp) => {
+setInterval(() => OtpModel.cleanupExpired(), 3600000); // Clean hourly
+const sendOtpEmail = async (email, userName) => {
+  const t = await sequelize.transaction();
   try {
-    await client.send({
-      from: sender,
-      to: [{ email }], // Correct Mailtrap format
-      subject: "Your OTP for Account Verification",
-      html: `
-        <p>Hello ${userName},</p>
-        <h2 style="color: #4CAF50;">${otp}</h2>
-        <p>This OTP is valid for 10 minutes.</p>
-        <p>If you did not request this, please ignore this email.</p>
-      `,
-      category: "Email Verification",
+    // Ensure table exists
+    await OtpModel.initTable();
+
+    // Delete old OTPs
+    await OtpModel.destroy({
+      where: { email },
+      transaction: t,
     });
+
+    // Create new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await OtpModel.create(
+      {
+        email,
+        otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+      { transaction: t }
+    );
+
+    // Send email using correct Mailtrap API
+    const response = await client.send({
+      from: sender,
+      to: [{ email }],
+      subject: "Your OTP for verification",
+      text: `Hello ${userName},\n\nYour OTP is ${otp}.\nIt is valid for 10 minutes.`,
+      category: "OTP Verification",
+    });
+
+    console.log("📧 Email sent:", response);
+    await t.commit();
+    return otp;
   } catch (error) {
-    console.error("Error sending OTP email:", error);
-    throw error;
+    await t.rollback();
+    console.error("OTP Error:", {
+      email,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw new Error("Failed to send OTP. Please try again later.");
   }
 };
-
 // Signup Controller
 const signup = async (req, res, next) => {
   console.log("Signup Request:", req.body);
@@ -76,6 +103,7 @@ const signup = async (req, res, next) => {
       panNumber,
       password: hashedPassword,
     });
+    console.log("User Created");
 
     if (!user) {
       return res.status(500).json({
@@ -84,12 +112,8 @@ const signup = async (req, res, next) => {
       });
     }
 
-    // Generate and store OTP
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    await OtpModel.create({ email, otp });
-
     // Send OTP email
-    await sendOtpEmail(email, userName, otp);
+    await sendOtpEmail(email, userName);
 
     // Generate JWT token and set cookie
     generateTokenAndCookie(res, user.id);
@@ -110,59 +134,71 @@ const signup = async (req, res, next) => {
   }
 };
 
-const verifyOtp = async (req, res, next) => {
+// Verify OTP
+const verifyOtp = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
         message: "Email and OTP are required",
       });
     }
 
-    // Find and validate OTP
-    const otpRecord = await OtpModel.findOne({ where: { email, otp } });
+    // Find the OTP record
+    const otpRecord = await OtpModel.findOne({
+      where: {
+        email,
+        otp,
+        used: false,
+        expiresAt: { [Op.gt]: new Date() }, // Fixed: Using properly imported Op
+      },
+      transaction: t,
+    });
+
     if (!otpRecord) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
         message: "Invalid or expired OTP",
       });
     }
 
-    // Check if OTP is expired (10 minutes)
-    const otpAge = Date.now() - new Date(otpRecord.createdAt).getTime();
-    if (otpAge > 10 * 60 * 1000) {
-      await OtpModel.destroy({ where: { email } });
-      return res.status(400).json({
-        success: false,
-        message: "OTP has expired",
-      });
-    }
+    // Mark OTP as used
+    await otpRecord.update({ used: true }, { transaction: t });
 
-    // Update user verification status
+    // Verify user
     const [updatedCount] = await User.update(
       { isVerified: true },
-      { where: { email } }
+      {
+        where: { email },
+        transaction: t,
+      }
     );
 
     if (updatedCount === 0) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
-        message: "User not found or already verified",
+        message: "User not found",
       });
     }
 
-    // Clean up OTP record
-    await OtpModel.destroy({ where: { email } });
-
-    res.status(200).json({
+    await t.commit();
+    return res.status(200).json({
       success: true,
       message: "OTP verified successfully",
     });
   } catch (error) {
+    await t.rollback();
     console.error("OTP Verification Error:", error);
-    next(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during OTP verification",
+    });
   }
 };
 
@@ -180,12 +216,20 @@ const login = async (req, res, next) => {
       });
     }
 
+    console.log("User Found");
+
     // Handle unverified users
     if (!user.isVerified) {
-      const otp = Math.floor(100000 + Math.random() * 900000);
-      await OtpModel.upsert({ email, otp });
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-      await sendOtpEmail(email, user.username, otp);
+      await OtpModel.upsert({
+        email,
+        otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        used: false,
+      });
+
+      await sendOtpEmail(email, user.username);
 
       return res.status(200).json({
         success: false,
@@ -194,6 +238,8 @@ const login = async (req, res, next) => {
         email: user.email,
       });
     }
+
+    console.log("User is verified");
 
     // Validate password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -207,9 +253,10 @@ const login = async (req, res, next) => {
     // Update last login and generate token
     user.lastLogin = new Date();
     await user.save();
+
     generateTokenAndCookie(res, user.id);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Logged in successfully",
       user: {
@@ -221,7 +268,7 @@ const login = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.log("Login Error:", error);
+    console.error("Login Error:", error);
     next(error);
   }
 };

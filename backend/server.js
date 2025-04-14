@@ -4,6 +4,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const Queue = require("bull");
+const OtpModel = require("./models/otpSchema");
 require("./utils/remove-unverified-user.js");
 // Import the invoice routes
 const invoiceRoutes = require("./routes/invoiceRoutes");
@@ -37,24 +38,60 @@ const fileQueue = new Queue("fileProcessing", "redis://127.0.0.1:6379");
 // server.js - Modify your sync code
 // Remove any existing sync/alter code and replace with:
 
+// server.js - Database connection
+// server.js - Database connection
+// server.js - Database connection
+// server.js - Database connection
+// server.js - Database connection
+// server.js - Updated database initialization
+// Add this utility function at the top of server.js
+// Add this function
+const initializeOtpTable = async () => {
+  try {
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS Otps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp VARCHAR(6) NOT NULL,
+        expiresAt DATETIME NOT NULL,
+        used TINYINT(1) DEFAULT 0,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX otp_email_index (email),
+        INDEX otp_expiry_index (expiresAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.log("✅ OTP table verified/created");
+  } catch (error) {
+    console.error("❌ OTP table initialization failed:", error);
+    throw error;
+  }
+};
+
+// In your main initialization
+// Add this before app.listen
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ Database connection established.");
 
-    // Create tables if they don't exist
-    sequelize.sync({ force: true });
-    console.log("✅ Tables created successfully.");
+    // Initialize OTP table first with retries
+    await OtpModel.initTable(5); // 5 retries
+
+    // Then sync other models
+    await sequelize.sync({ alter: true });
+    console.log("✅ All tables verified");
+
+    // Start cleanup job only after tables are ready
+    require("./utils/remove-unverified-user");
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("❌ Database connection failed:", error);
+    console.error("❌ Startup failed:", error);
     process.exit(1);
   }
 })();
-
 // Routes
 app.use("/api", dataRoutes(fileQueue)); // Pass fileQueue to routes
 app.use("/api/auth", authRoutes);

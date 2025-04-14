@@ -1,39 +1,24 @@
-const cron = require("node-cron");
-const { Op } = require("sequelize");
-const User = require("../models/userSchema");
+const { sequelize } = require("../config/database");
 const OtpModel = require("../models/otpSchema");
 
 const cleanupExpiredData = async () => {
   try {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    // Ensure table exists first
+    await OtpModel.initTable();
 
-    await User.destroy({
+    const count = await OtpModel.destroy({
       where: {
-        isVerified: false,
-        lastLogin: {
-          [Op.lt]: tenMinutesAgo,
-        },
+        expiresAt: { [sequelize.Op.lt]: new Date() },
       },
     });
-
-    await OtpModel.destroy({
-      where: {
-        createdAt: {
-          [Op.lt]: tenMinutesAgo,
-        },
-      },
-    });
-
-    console.log("Expired users and OTPs cleaned up successfully.");
+    console.log(`🧹 Cleaned up ${count} expired OTPs`);
   } catch (error) {
-    console.error("Error in cleanup job:", error);
+    console.error("Cleanup Error:", error.message);
   }
 };
 
-// Schedule the cleanup job to run every 10 minutes
-cron.schedule("*/1 * * * *", async () => {
-  console.log("Running scheduled cleanup job...");
-  await cleanupExpiredData();
-});
+// Run cleanup every hour
+setInterval(cleanupExpiredData, 60 * 60 * 1000);
 
-module.exports = cron;
+// Initial cleanup after 5 seconds delay
+setTimeout(cleanupExpiredData, 5000);

@@ -2,7 +2,7 @@ import axios from 'axios'
 import React from 'react'
 
 const Axios = axios.create({
-    baseURL: "https://panemail-api.amiigo.in/api",
+    baseURL: "http://localhost:4000/api",
     withCredentials: true,
     timeout: 100000,
     headers: {
