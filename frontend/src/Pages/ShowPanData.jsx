@@ -7,7 +7,6 @@ import Axios from "../Lib/Axios";
 const ShowPanData = () => {
   const [panEntries, setPanEntries] = useState([]);
   const [selectedPan, setSelectedPan] = useState(null);
-  const [selectedType, setSelectedType] = useState("");
   const [selectedDownloadType, setSelectedDownloadType] = useState("");
   const [emails, setEmails] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,7 +57,7 @@ const ShowPanData = () => {
               page: currentPage,
               limit: 100,
               userId: user.id,
-              type: selectedType,
+              type: type,
             },
           }
         );
@@ -149,7 +148,6 @@ const ShowPanData = () => {
               onClick={() => {
                 setSelectedPan(entry.panNumber);
                 setCurrentPage(1);
-                setSelectedType("approved-entries");
                 setShowPanList(false);
               }}
             >

@@ -141,13 +141,13 @@ const getData = async (req, res) => {
     // Find the PAN entry for the specific user
     let panEntry = {};
     if (user.isAdmin) {
-     if(type=="approved-entries"){ panEntry = await Data.findOne({
+     if(type=="data"){ panEntry = await Data.findOne({
         where: { panNumber },
       });}
-     if(type=="users"){ panEntry = await User.findOne({
+     if(type=="user"){ panEntry = await User.findOne({
         where: { panNumber },
       });}
-     if(type=="other"){ panEntry = await PanEmailData.findOne({
+     if(type=="panemail"){ panEntry = await PanEmailData.findOne({
         where: { panNumber },
       });}
     } else {
