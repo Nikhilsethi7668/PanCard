@@ -592,6 +592,7 @@ const getRequestsByUser = async (req, res) => {
   }
 };
 
+
 const downloadFile = async (req, res) => {
   try {
     const { requestId } = req.params;
@@ -608,14 +609,30 @@ const downloadFile = async (req, res) => {
       return res.status(404).json({ message: "File not found." });
     }
 
-    // Serve the file
-    return res.download(filePath, request.fileName);
+    // Set proper headers for CSV download
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${
+        request.fileName.endsWith(".csv")
+          ? request.fileName
+          : request.fileName + ".csv"
+      }"`
+    );
+
+    // Create read stream and pipe to response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on("error", (error) => {
+      console.error("File stream error:", error);
+      res.status(500).end();
+    });
   } catch (error) {
     console.error("Error downloading file:", error);
     return res.status(500).json({ message: "Internal server error." });
   }
 };
-
 const deleteFileRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
