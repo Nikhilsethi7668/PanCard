@@ -18,7 +18,7 @@ const ShowPanData = () => {
   const [currentPagePan, setCurrentPagePan] = useState(1);
   const [totalCountPan, setTotalCountPan] = useState(0);
  const [searchText,setSearchText]=useState("")
-  const fetchPanEntries = async (page = 1, limit = 100) => {
+  const fetchPanEntries = async (page = 1, limit = 10) => {
   try {
     setLoading(true);
     const response = await Axios.get(`/pan-entries/${user.id}`, {
@@ -35,11 +35,11 @@ const ShowPanData = () => {
 };
 
   useEffect(() => {
-    fetchPanEntries(currentPagePan, 100); 
+    fetchPanEntries(currentPagePan, 10); 
   }, [currentPagePan]);
 
   const Search =()=>{
-    fetchPanEntries(currentPagePan, 100);
+    fetchPanEntries(currentPagePan, 10);
   }
 
   useEffect(() => {
