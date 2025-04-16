@@ -254,8 +254,6 @@ const allpan = async (req, res) => {
         attributes: [
           'id',
           'panNumber',
-          [sequelize.fn('jsonb_array_length', sequelize.col('email')), 'emailCount'],
-          'email'
         ],
         order: [['panNumber', 'ASC']],
         limit: parsedLimit,
