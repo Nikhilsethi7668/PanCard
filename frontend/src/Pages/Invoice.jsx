@@ -6,10 +6,12 @@ import autoTable from "jspdf-autotable";
 import { UserContext } from "../Context/UserContext";
 import Axios from "../Lib/Axios";
 import SendInvoiceDialog from "../Components/invoice/SendInvoiceDialog";
+import { FaSearch } from "react-icons/fa";
 
 const Invoice = () => {
   const { user } = useContext(UserContext);
   const currentYear = new Date().getFullYear().toString();
+   const [searchText,setSearchText]=useState("")
   const [filters, setFilters] = useState({
     userid: user.isAdmin ? "" : user.id,
     month: "",
@@ -55,7 +57,7 @@ const Invoice = () => {
   const fetchInvoices = async (filters) => {
     try {
       const response = await Axios.get("/invoice/get", {
-        params: filters,
+        params: {...filters,searchText},
       });
 
       return response.data;
@@ -66,7 +68,7 @@ const Invoice = () => {
   };
 
   useEffect(() => {
-    if (filters.userId || filters.month || filters.year) {
+    if (filters.userid || filters.month || filters.year) {
       fetchInvoices(filters).then((data) => {        
           setInvoices(data);
       });
@@ -87,7 +89,11 @@ const Invoice = () => {
       return;
     }
   }
-
+  const Search =()=>{
+    fetchInvoices(filters).then((data) => {        
+      setInvoices(data);
+  });
+  }
   const generatePDF = (invoice) => {
     const doc = new jsPDF();
 
@@ -138,6 +144,13 @@ const Invoice = () => {
         {user.isAdmin && <SendInvoiceDialog />}
       </div>
       <div className="flex flex-wrap gap-4 mt-4">
+         <div className="flex gap-2">
+                <input className="border h-8 w-full" type="text"  onKeyDown={(e) => {
+    if (e.key === 'Enter') {
+      Search();
+    }
+  }} value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
+                </div>
         {user.isAdmin && (
           <select
             name="userid"
@@ -213,6 +226,9 @@ const Invoice = () => {
                 </span>
               </div>
 
+              <p className="text-sm text-gray-600">
+                <strong>Pan number:</strong>{invoice.panNumber}
+              </p>
               <p className="text-sm text-gray-600">
                 <strong>Bill To:</strong> {invoice.billToName} (
                 {invoice.billToCompany})

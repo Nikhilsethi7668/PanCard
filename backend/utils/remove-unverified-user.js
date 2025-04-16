@@ -1,5 +1,6 @@
-const { sequelize } = require("../config/database");
 const OtpModel = require("../models/otpSchema");
+const Sequelize = require("sequelize");
+const { Op } = Sequelize;
 
 const cleanupExpiredData = async () => {
   try {
@@ -8,7 +9,7 @@ const cleanupExpiredData = async () => {
 
     const count = await OtpModel.destroy({
       where: {
-        expiresAt: { [sequelize.Op.lt]: new Date() },
+        expiresAt: { [Op.lt]: new Date() },
       },
     });
     console.log(`🧹 Cleaned up ${count} expired OTPs`);

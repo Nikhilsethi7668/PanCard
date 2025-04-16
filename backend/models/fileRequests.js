@@ -4,19 +4,47 @@ const sequelize = require("../config/database");
 const User = require("./userSchema");
 
 const FileRequest = sequelize.define("FileRequest", {
-  // ... (keep all your field definitions)
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: User, // This is okay to keep
+      model: User, 
       key: "id",
     },
   },
-});
+  approvalStage: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: "pending",
+  },
+  fileName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  filePath: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
 
-// Remove these lines:
-// User.hasMany(FileRequest, { foreignKey: "userId", as: "fileRequests" });
-// FileRequest.belongsTo(User, { foreignKey: "userId", as: "user" });
+  approvedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: User,
+      key: "id",
+    },
+  },
+
+  approvedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+
+  numberOfPans: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
+});
 
 module.exports = FileRequest;

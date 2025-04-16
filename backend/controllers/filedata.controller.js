@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const FileRequest = require("../models/fileRequests");
 const path = require("path");
 const PanEmailData = require("../models/panEmailDataSchema");
+const { Op, fn, col, where, literal } = require("sequelize");
 
 let fileQueue;
 
@@ -181,62 +182,135 @@ const getData = async (req, res) => {
   }
 };
 
+
 const allpan = async (req, res) => {
   try {
     const userId = req.params.id;
-    console.log(userId);
+    const { page = 1, searchText = "", limit = 10 } = req.query;
 
-    // Fetch the user's isAdmin status
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const offset = (parsedPage - 1) * parsedLimit;
+
     const user = await User.findByPk(userId, { attributes: ["isAdmin"] });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Define the conditio n based on isAdmin status
     const whereCondition = user.isAdmin ? {} : { userId };
 
-    // Fetch PAN entries based on the condition
-    const panEntries = await Data.findAll({
-      where: whereCondition,
-      attributes: [
-        "panNumber",
-        [sequelize.fn("COUNT", sequelize.col("email")), "emailCount"],
-      ],
-      group: ["panNumber"],
-    });
+    const panSearchCondition = searchText
+      ? where(fn("UPPER", col("panNumber")), {
+          [Op.like]: `%${searchText.toUpperCase()}%`,
+        })
+      : {};
+
+    let panEntries = [];
     let usersDetails = [];
     let PanEmailDataEntries = [];
-    if (user.isAdmin) {
-      usersDetails = await User.findAll({
+    let totalCount = 0;
+
+    // 1️⃣ Count distinct panNumbers in Data table
+    const totalDataCount = await Data.count({
+      where: {
+        ...whereCondition,
+        ...(searchText ? { [Op.and]: [panSearchCondition] } : {}),
+      },
+      distinct: true,
+      col: "panNumber",
+    });
+
+    if (offset < totalDataCount) {
+      panEntries = await Data.findAll({
+        where: {
+          ...whereCondition,
+          ...(searchText ? { [Op.and]: [panSearchCondition] } : {}),
+        },
         attributes: [
           "panNumber",
-          [sequelize.fn("COUNT", sequelize.col("email")), "emailCount"],
+          [fn("COUNT", col("email")), "emailCount"],
         ],
         group: ["panNumber"],
-      });
-      PanEmailDataEntries = await PanEmailData.findAll({
-        attributes: [
-          "panNumber",
-          [sequelize.fn("COUNT", sequelize.col("Emails")), "emailCount"],
-        ],
-        group: ["panNumber"],
+        order: [[fn("COUNT", col("email")), "DESC"]],
+        offset,
+        limit: parsedLimit,
+        raw: true,
       });
     }
 
-    res
-      .status(200)
-      .json({
-        panEntries: panEntries,
-        userDetails: usersDetails,
-        PanEmailDataEntries: PanEmailDataEntries,
+    const remainingLimit = parsedLimit - panEntries.length;
+
+    let userTotalCount = 0;
+    let panEmailTotalCount = 0;
+
+    if (user.isAdmin && remainingLimit > 0) {
+      const userOffset = Math.max(offset - totalDataCount, 0);
+
+      userTotalCount = await User.count({
+        where: searchText ? { [Op.and]: [panSearchCondition] } : {},
+        distinct: true,
+        col: "panNumber",
       });
+
+      if (userOffset < userTotalCount) {
+        usersDetails = await User.findAll({
+          where: searchText ? { [Op.and]: [panSearchCondition] } : {},
+          attributes: [
+            "panNumber",
+            [fn("COUNT", col("email")), "emailCount"],
+          ],
+          group: ["panNumber"],
+          order: [[fn("COUNT", col("email")), "DESC"]],
+          offset: userOffset,
+          limit: remainingLimit,
+          raw: true,
+        });
+      }
+
+      const stillRemaining = remainingLimit - usersDetails.length;
+
+      if (stillRemaining > 0) {
+        const panEmailOffset = Math.max(offset - totalDataCount - userTotalCount, 0);
+
+        panEmailTotalCount = await PanEmailData.count({
+          where: searchText ? { [Op.and]: [panSearchCondition] } : {},
+          distinct: true,
+          col: "panNumber",
+        });
+
+        if (panEmailOffset < panEmailTotalCount) {
+          PanEmailDataEntries = await PanEmailData.findAll({
+            where: searchText ? { [Op.and]: [panSearchCondition] } : {},
+            attributes: [
+              "panNumber",
+              [fn("COUNT", col("Emails")), "emailCount"],
+            ],
+            group: ["panNumber"],
+            order: [[fn("COUNT", col("Emails")), "DESC"]],
+            offset: panEmailOffset,
+            limit: stillRemaining,
+            raw: true,
+          });
+        }
+      }
+    }
+
+    totalCount = totalDataCount + userTotalCount + panEmailTotalCount;
+
+    res.status(200).json({
+      totalCount,
+      panEntries,
+      userDetails: usersDetails,
+      PanEmailDataEntries,
+    });
   } catch (error) {
     console.error("Error fetching PAN entries:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching PAN entries", error: error.message });
+    res.status(500).json({ message: "Error fetching PAN entries", error: error.message });
   }
 };
+
+
+
 
 // Function to fetch all users
 const getAllUsers = async (req, res) => {
@@ -351,26 +425,25 @@ const deleteUser = async (req, res) => {
 // Submit file upload request
 const submitFileRequest = async (req, res) => {
   try {
-    const userId = req.params.id; // Extract userId from request params
+    const userId = req.params.id;
     const file = req.file;
-    console.log(userId);
 
-    console.log("User ID:", userId); // Debug userId
-    console.log("File:", file); // Debug file
-
+    // Validate file
     if (!file) {
       return res.status(400).json({ message: "No file uploaded." });
     }
 
-    // Ensure userId is a valid number
+    // Validate userId
     if (!userId || isNaN(userId)) {
       return res.status(400).json({ message: "Invalid user ID." });
     }
 
+    // Create new file request
     const newRequest = await FileRequest.create({
-      userId: parseInt(userId, 10), // Ensure userId is an integer
+      userId: parseInt(userId, 10),
       fileName: file.originalname,
       filePath: file.path,
+      // approvalStage and numberOfPans will default automatically
     });
 
     res.status(200).json({
@@ -382,28 +455,45 @@ const submitFileRequest = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
 // Fetch pending requests for admin
-const getPendingRequests = async (req, res) => {
+const getRequests = async (req, res) => {
   try {
+    const { approvalStage } = req.query;
+
+    const whereClause = {};
+
+    // If approvalStage is provided, filter by it
+    if (approvalStage) {
+      whereClause.approvalStage = approvalStage;
+    }
+
     const requests = await FileRequest.findAll({
-      where: { status: "pending" },
-      include: [{ model: User, as: "user", attributes: ["email"] }],
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["email"],
+        },
+      ],
     });
 
     res.status(200).json(requests);
   } catch (error) {
-    console.error("Error fetching pending requests:", error);
+    console.error("Error fetching file requests:", error);
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
 const updateRequestStatus = async (req, res) => {
   try {
     const { requestId } = req.params;
-    console.log(requestId);
-    const { status } = req.body;
+    const { status } = req.body; 
+    const {userId}=req.user;
 
     if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status." });
+      return res.status(400).json({ message: "Invalid approval stage." });
     }
 
     const request = await FileRequest.findByPk(requestId);
@@ -411,92 +501,74 @@ const updateRequestStatus = async (req, res) => {
       return res.status(404).json({ message: "Request not found." });
     }
 
-    request.status = status;
-    await request.save();
+    request.approvalStage = status;
 
     if (status === "approved") {
-      // Ensure the "uploads/processed" directory exists
+      // Add metadata
+      request.approvedBy = userId;
+      request.approvedAt = new Date();
       const processedDir = path.join(__dirname, "../uploads/processed");
       if (!fs.existsSync(processedDir)) {
         fs.mkdirSync(processedDir, { recursive: true });
       }
 
-      // Verify the file exists before moving it
       if (fs.existsSync(request.filePath)) {
         const finalPath = path.join(processedDir, request.fileName);
         fs.renameSync(request.filePath, finalPath);
         request.filePath = finalPath;
-        await request.save();
 
-        // Process the file after moving it
         const results = [];
         await new Promise((resolve, reject) => {
           fs.createReadStream(finalPath)
             .pipe(csv())
             .on("headers", (headers) => {
-              console.log("Headers:", headers);
-
-              // Normalize headers to lowercase and trim whitespace
-              const normalizedHeaders = headers.map((header) =>
-                header.trim().toLowerCase()
+              const normalizedHeaders = headers.map((h) =>
+                h.trim().toLowerCase()
               );
-
-              // Find the indices of the relevant columns
-              const panHeaderIndex = normalizedHeaders.findIndex((header) =>
-                header.includes("pan")
-              );
-              const emailHeaderIndex = normalizedHeaders.findIndex((header) =>
-                header.includes("email")
-              );
-
-              if (panHeaderIndex === -1 || emailHeaderIndex === -1) {
+              if (
+                !normalizedHeaders.some((h) => h.includes("pan")) ||
+                !normalizedHeaders.some((h) => h.includes("email"))
+              ) {
                 reject(
-                  new Error("CSV file must contain 'pan' and 'email' columns.")
+                  new Error("CSV must contain 'pan' and 'email' columns.")
                 );
               }
             })
-            .on("data", (data) => {
-              // Extract the relevant columns using the header names
-              const panNumber = data.pan;
-              const email = data.email;
-
-              // Skip empty rows
+            .on("data", (row) => {
+              const panNumber = row.pan;
+              const email = row.email;
               if (panNumber && email) {
-                results.push({ panNumber, email, userId: request.userId });
-              } else {
-                console.log("Skipping row due to empty panNumber or email");
+                results.push({
+                  panNumber,
+                  email,
+                  fileRequestId:request.id,
+                  userId: request.userId,
+                });
               }
             })
             .on("end", () => {
-              console.log("Parsed Results:", results);
-              console.log(`Parsed ${results.length} rows`);
-
-              // Process the data in batches
-              processDataInBatches(results, request.userId);
-
-              // Delete the file after processing
-              fs.unlinkSync(finalPath);
-
+              request.numberOfPans = results.length;
+              processDataInBatches(results, request.userId); // your batch processor logic
+              fs.unlinkSync(finalPath); // delete after processing
               resolve();
             })
             .on("error", (error) => {
-              console.error("Error parsing CSV file:", error);
               reject(error);
             });
         });
       } else {
-        console.error("File not found:", request.filePath);
         return res.status(404).json({ message: "File not found." });
       }
     } else if (status === "rejected") {
-      // Verify the file exists before deleting it
+      // Just delete file
       if (fs.existsSync(request.filePath)) {
         fs.unlinkSync(request.filePath);
       } else {
-        console.error("File not found:", request.filePath);
         return res.status(404).json({ message: "File not found." });
       }
     }
+
+    await request.save();
 
     res.status(200).json({ message: `Request ${status} successfully.` });
   } catch (error) {
@@ -504,36 +576,100 @@ const updateRequestStatus = async (req, res) => {
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
 // Fetch pending requests for a specific user
-const getPendingRequestsByUser = async (req, res) => {
+const getRequestsByUser = async (req, res) => {
   try {
     const userId = req.params.userId;
-    console.log("User ID:", userId);
+    const { approvalStage } = req.query;
 
     // Validate userId
     if (!userId || isNaN(userId)) {
       return res.status(400).json({ message: "Invalid user ID." });
     }
 
-    // Fetch pending requests with user data
+    const whereClause = {
+      userId: parseInt(userId, 10),
+    };
+
+    // Add stage filter if present
+    if (approvalStage) {
+      whereClause.approvalStage = approvalStage;
+    }
+
     const requests = await FileRequest.findAll({
-      where: { userId, status: "pending" },
+      where: whereClause,
       include: [
         {
           model: User,
-          as: "user", // Ensure alias matches the association
+          as: "user",
           attributes: ["email"],
         },
       ],
     });
 
-    console.log("Requests:", requests);
     res.status(200).json(requests);
   } catch (error) {
-    console.error("Error fetching pending requests for user:", error);
+    console.error("Error fetching requests for user:", error);
     res.status(500).json({ message: "Internal server error." });
   }
 };
+
+const downloadFile = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    // Find the request by ID
+    const request = await FileRequest.findByPk(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "File request not found." });
+    }
+
+    // Check if the file exists
+    const filePath = request.filePath;
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "File not found." });
+    }
+
+    // Serve the file
+    return res.download(filePath, request.fileName);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+const deleteFileRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    // Fetch the request
+    const request = await FileRequest.findByPk(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "File request not found." });
+    }
+
+    // Set approvalStage to 'deleted'
+    request.approvalStage = "deleted";
+    await request.save();
+
+    // Delete associated data entries
+    await Data.destroy({
+      where: { fileRequestId: requestId },
+    });
+
+    // Optionally delete the file from disk if it exists
+    if (fs.existsSync(request.filePath)) {
+      fs.unlinkSync(request.filePath);
+    }
+
+    return res.status(200).json({ message: "File request marked as deleted and associated data removed." });
+  } catch (error) {
+    console.error("Error deleting file request:", error);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 
 module.exports = {
   uploadFile,
@@ -545,7 +681,9 @@ module.exports = {
   deleteUser,
   downloadEmails,
   submitFileRequest,
-  getPendingRequests,
+  getRequests,
   updateRequestStatus,
-  getPendingRequestsByUser,
+  getRequestsByUser,
+  downloadFile,
+  deleteFileRequest
 };

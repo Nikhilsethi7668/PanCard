@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
+const FileRequest = require("./fileRequests");
 
 const Data = sequelize.define("Data", {
   id: {
@@ -27,6 +28,14 @@ const Data = sequelize.define("Data", {
     allowNull: false,
     references: {
       model: "Users", // Reference the User table
+      key: "id",
+    },
+  },
+  fileRequestId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: FileRequest,
       key: "id",
     },
   },

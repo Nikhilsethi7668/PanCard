@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../Context/UserContext';
 import Loader from '../Components/Loader';
 import Axios from '../Lib/Axios';
+import { FaDownload } from 'react-icons/fa';
 
 const UploadFile = () => {
     const [file, setFile] = useState(null);
@@ -31,13 +32,13 @@ const UploadFile = () => {
         try {
             // Ensure user.id is passed (MySQL uses numeric IDs)
             const response = await Axios.post(
-                `/api/upload/${user.id}`, // Use user.id instead of user._id
+                `/upload/${user.id}`, // Use user.id instead of user._id
                 formData,
                 {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 }
             );
-
+            setFile(null)
             setStatus('pending'); // Set status to pending
             alert('File upload request submitted for approval.');
         } catch (error) {
@@ -46,6 +47,15 @@ const UploadFile = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const DownloadCsvDemo = () => {
+        const link = document.createElement('a');
+        link.href = '/demo.csv'; 
+        link.download = 'demo.csv'; 
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -74,6 +84,14 @@ const UploadFile = () => {
                     </button>
                     {status && <p className="text-gray-700">Status: {status}</p>}
                 </div>
+
+              <div className='flex justify-between py-2 items-center'>
+                <div><h1 className=' font-semibold text-lg'>Demo file</h1>
+                <p>Follow this file format to upload data</p>
+                </div>
+                <FaDownload className=' cursor-pointer' onClick={DownloadCsvDemo}/>
+              </div>
+
             </div>
         </div>
     );

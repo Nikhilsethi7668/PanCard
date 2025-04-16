@@ -7,7 +7,7 @@ const generateTokenAndCookie = require("../utils/generateToken.js");
 const { sequelize } = require("../models");
 const { Op } = require("sequelize");
 
-setInterval(() => OtpModel.cleanupExpired(), 3600000); // Clean hourly
+// setInterval(() => OtpModel.cleanupExpired(), 3600000); // Clean hourly
 const sendOtpEmail = async (email, userName) => {
   const t = await sequelize.transaction();
   try {

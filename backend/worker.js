@@ -11,14 +11,14 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
 
     // Insert or update data in MySQL
     for (const row of batch) {
-      const { panNumber, email } = row;
+      const { panNumber,fileRequestId, email } = row;
 
       if (!panNumber || !email) continue;
 
       // Find or create the PAN entry
       const [dataEntry, created] = await Data.findOrCreate({
         where: { panNumber, userId },
-        defaults: { email: [email] }, // Default value for new entries
+        defaults: { email: [email], fileRequestId, }, // Default value for new entries
       });
 
       if (!created) {

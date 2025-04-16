@@ -1,56 +1,135 @@
 import React, { useEffect, useState } from 'react';
 import Axios from '../Lib/Axios';
+import { FaDownload } from 'react-icons/fa';
+
+const approvalColors = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+    deleted: 'bg-gray-100 text-gray-800',
+};
 
 const AdminDashboard = () => {
     const [requests, setRequests] = useState([]);
+    const [filter, setFilter] = useState('');
 
-    // Fetch pending requests
-    const fetchPendingRequests = async () => {
+    const fetchRequests = async (status) => {
         try {
-            const response = await Axios.get('/upload/requests/pending');
+            const response = await Axios.get(`/upload/requests?approvalStage=${status}`);
             setRequests(response.data);
         } catch (error) {
-            console.error('Error fetching pending requests:', error);
+            console.error('Error fetching requests:', error);
         }
     };
 
-    // Approve or reject a request
     const handleApproveReject = async (requestId, status) => {
         try {
-            // console.log("requestId", requestId)
-            await Axios.put(`/upload/requests/${requestId}`, { status });
-            fetchPendingRequests(); // Refresh the list after updating status
+            await Axios.put(`/upload/requests/${requestId}`,{status});
+            fetchRequests(filter); // Refresh after update
         } catch (error) {
             console.error('Error updating request status:', error);
         }
     };
-
+    const handleDeleteData=async (requestId)=>{
+        try {
+            await Axios.put(`/upload/requests/delete/${requestId}`);
+            fetchRequests(filter); // Refresh after update
+        } catch (error) {
+            console.error('Error deleting data:', error);
+        }
+    }
+    const handleDownloadData = async (requestId) => {
+        try {
+            const response = await Axios.get(`/upload/download/${requestId}`, {
+                responseType: 'blob', 
+            });
+    
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+    
+            // Try to extract filename from headers, fallback if not present
+            const disposition = response.headers['content-disposition'];
+            let filename = 'downloaded-file';
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition
+                    .split('filename=')[1]
+                    .replace(/["']/g, '');
+            }
+    
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+        }
+    };
+    
     useEffect(() => {
-        fetchPendingRequests();
-    }, []);
+        fetchRequests(filter);
+    }, [filter]);
 
     return (
         <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4">Pending File Upload Requests</h1>
+            <h1 className="text-2xl font-bold mb-4">File Upload Requests</h1>
+
+            {/* Dropdown for filter */}
+            <div className="mb-4">
+                <label className="mr-2 font-semibold">Filter by Status:</label>
+                <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="p-2 border rounded"
+                >
+                    <option value=""></option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+
+            {/* Requests List */}
             <ul>
                 {requests.map((request) => (
-                    <li key={request.id} className="mb-4 p-4 border rounded-lg">
-                        <p>File: {request.fileName}</p>
-                        <p>User: {request.user.email}</p>
-                        <div className="mt-2">
-                            <button
-                                onClick={() => handleApproveReject(request.id, 'approved')}
-                                className="bg-green-500 text-white px-4 py-2 rounded-lg mr-2"
+                    <li key={request.id} className="mb-4 p-4 border rounded-lg shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                           <div className='flex items-center gap-1'> <p className="text-lg font-semibold">{request.fileName}</p> {request.approvalStage === 'pending' &&<FaDownload onClick={()=>handleDownloadData(request.id)} className=' cursor-pointer'/>} </div>
+                            <span
+                                className={`px-3 py-1 rounded-full text-sm font-semibold ${approvalColors[request.approvalStage]}`}
                             >
-                                Approve
-                            </button>
-                            <button
-                                onClick={() => handleApproveReject(request.id, 'rejected')}
-                                className="bg-red-500 text-white px-4 py-2 rounded-lg"
-                            >
-                                Reject
-                            </button>
+                                {request.approvalStage}
+                            </span>
                         </div>
+                        <p><strong>User:</strong> {request.user.email}</p>
+                        <p><strong>Created At:</strong> {new Date(request.createdAt).toLocaleString()}</p>
+                        {request.approvalStage === 'approved'&&<p><strong>Number of PANs:</strong> {request.numberOfPans}</p>}
+
+                        {request.approvalStage === 'pending' && (
+                            <div className="mt-3">
+                                <button
+                                    onClick={() => handleApproveReject(request.id, 'approved')}
+                                    className="bg-green-500 text-white px-4 py-2 rounded-lg mr-2"
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => handleApproveReject(request.id, 'rejected')}
+                                    className="bg-red-500 text-white px-4 py-2 rounded-lg"
+                                >
+                                    Reject
+                                </button>
+                            </div>
+                        )}
+                        {request.approvalStage === 'approved'&& <button
+                                    onClick={() => handleDeleteData(request.id)}
+                                    className="bg-red-500 text-white px-4 py-2 rounded-lg"
+                                >
+                                    Delete data
+                       </button>}
                     </li>
                 ))}
             </ul>

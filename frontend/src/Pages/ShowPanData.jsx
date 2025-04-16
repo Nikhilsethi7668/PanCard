@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { UserContext } from "../Context/UserContext";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaSearch } from "react-icons/fa";
 import { FiLoader } from "react-icons/fi";
 import Axios from "../Lib/Axios";
 
@@ -14,25 +14,33 @@ const ShowPanData = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [showPanList, setShowPanList] = useState(false);
   const { user } = useContext(UserContext);
- const [loading,setLoading]=useState(false)
-  useEffect(() => {
-    fetchPanEntries();
-  }, []);
+  const [loading,setLoading]=useState(false)
+  const [currentPagePan, setCurrentPagePan] = useState(1);
+  const [totalCountPan, setTotalCountPan] = useState(0);
+ const [searchText,setSearchText]=useState("")
+  const fetchPanEntries = async (page = 1, limit = 100) => {
+  try {
+    setLoading(true);
+    const response = await Axios.get(`/pan-entries/${user.id}`, {
+      params: { page, limit,searchText },
+    });
+    setPanEntries(response.data);
+    setTotalCountPan(response.data.totalCount); 
+  } catch (error) {
+    console.error("Error fetching PAN entries:", error);
+    alert("Failed to fetch PAN entries.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const fetchPanEntries = async () => {
-    try {
-        setLoading(true)
-      const response = await Axios.get(
-        `/pan-entries/${user.id}`
-      );
-      setPanEntries(response.data);
-    } catch (error) {
-      console.error("Error fetching PAN entries:", error);
-      alert("Failed to fetch PAN entries.");
-    } finally{
-        setLoading(false)
-    }
-  };
+  useEffect(() => {
+    fetchPanEntries(currentPagePan, 100); 
+  }, [currentPagePan]);
+
+  const Search =()=>{
+    fetchPanEntries(currentPagePan, 100);
+  }
 
   useEffect(() => {
     if (!selectedPan) return;
@@ -61,6 +69,8 @@ const ShowPanData = () => {
 
     fetchEmails();
   }, [selectedPan, currentPage, user.id]);
+
+
 
   const downloadData = async (panNumber) => {
     try {
@@ -107,9 +117,16 @@ const ShowPanData = () => {
         style={{ zIndex: 40, height: "100vh", top: 0, left: 0 }}
       >
         <h1 className="text-2xl font-bold mb-6">PAN Entries</h1>
+        <div className="flex gap-2">
+        <input className="border h-8 w-full"  onKeyDown={(e) => {
+    if (e.key === 'Enter') {
+      Search();
+    }
+  }} type="text" value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
+        </div>
         {loading&&<div className="w-full flex justify-center"><FiLoader className=" animate-spin" /></div>}
         <ul className="space-y-2">
-          {panEntries?.panEntries&&<span>Approved entries</span>}
+          {panEntries?.panEntries?.length?<span>Approved entries</span>:<></>}
           {panEntries?.panEntries?.map((entry) => (
             <li
               key={entry.panNumber}
@@ -143,7 +160,7 @@ const ShowPanData = () => {
               </button>
             </li>
           ))}
-          {panEntries?.userDetails&&<span className="mt-2">Users</span>}
+          {panEntries?.userDetails?.length?<span className="mt-2">Users</span>:<></>}
           {panEntries?.userDetails?.map((entry) => (
             <li
               key={entry.panNumber}
@@ -176,7 +193,7 @@ const ShowPanData = () => {
               </button> */}
             </li>
           ))}
-          {panEntries?.PanEmailDataEntries&&<span className="mt-2">Other</span>}
+          {panEntries?.PanEmailDataEntries?.length?<span className="mt-2">Other</span>:null}
           {panEntries?.PanEmailDataEntries?.map((entry) => (
             <li
               key={entry.panNumber}
@@ -211,6 +228,29 @@ const ShowPanData = () => {
             </li>
           ))}
         </ul>
+       {totalCountPan?<div className="mt-4 flex justify-center space-x-2">
+  <button
+    className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+    onClick={() => setCurrentPagePan((prev) => Math.max(prev - 1, 1))}
+    disabled={currentPage === 1}
+  >
+    Previous
+  </button>
+  <span className="px-2 py-1">{currentPagePan}</span>
+  <button
+    className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+    onClick={() => setCurrentPagePan((prev) =>
+      panEntries && panEntries.totalCount
+        ? Math.ceil(totalCountPan / 10) > prev
+        : false
+          ? prev
+          : prev + 1
+    )}
+    disabled={currentPagePan >= Math.ceil(totalCountPan / 10)}
+  >
+    Next
+  </button>
+</div>:<></>}
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">

@@ -1,8 +1,10 @@
 const db = require("../models");
 const csv = require("csv-parser");
 const stream = require("stream");
-const { Op } = require("sequelize");
+const Sequelize = require("sequelize");
+const { Op } = Sequelize;
 const Invoice = require("../models/Invoice");
+const { Where } = require("sequelize/lib/utils");
 
 exports.sendInvoice = async (req, res) => {
   try {
@@ -101,32 +103,45 @@ exports.sendInvoice = async (req, res) => {
   }
 };
 
-
 exports.getAllInvoices = async (req, res) => {
   try {
-    console.log(req.user);
-    const {isAdmin,userId}=req.user;
-    const { month, year,userid } = req.query;
+    const { isAdmin, userId } = req.user;
+    const { month, year, userid, searchText } = req.query;
+
     let where = {};
-    if(isAdmin&&userid){
-      where = {userId:userid};
+
+    if (isAdmin && userid) {
+      where.userId = userid;
+    } else if (!isAdmin) {
+      where.userId = userId;
     }
-    if(!isAdmin){
-      where = {userId}
-    }
+
+    // Add date filtering
     if (month && year) {
-      where.invoiceDate = {
-        [Op.and]: [
-          db.sequelize.where(
-            db.sequelize.fn("MONTH", db.sequelize.col("invoiceDate")),
-            month
-          ),
-          db.sequelize.where(
-            db.sequelize.fn("YEAR", db.sequelize.col("invoiceDate")),
-            year
-          ),
-        ],
-      };
+      where[Op.and] = [
+        ...(where[Op.and] || []),
+        where(
+          Sequelize.fn("MONTH", Sequelize.col("invoiceDate")),
+          month
+        ),
+        where(
+          Sequelize.fn("YEAR", Sequelize.col("invoiceDate")),
+          year
+        )
+      ];
+    }
+
+    // Add panNumber search
+    if (searchText) {
+      where[Op.and] = [
+        ...(where[Op.and] || []),
+       new Where(
+          Sequelize.fn("UPPER", Sequelize.col("user.panNumber")),
+          {
+            [Op.like]: `%${searchText.toUpperCase()}%`
+          }
+        )
+      ];
     }
 
     const invoices = await Invoice.findAll({
@@ -136,6 +151,7 @@ exports.getAllInvoices = async (req, res) => {
           model: db.User,
           as: "user",
           attributes: ["id", "username", "email", "panNumber"],
+          required: true, // ensures INNER JOIN
         },
       ],
       order: [["invoiceDate", "DESC"]],
@@ -143,11 +159,13 @@ exports.getAllInvoices = async (req, res) => {
 
     res.json(invoices);
   } catch (error) {
-    console.log(error);
-    
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
 
 exports.getUserInvoices = async (req, res) => {
   try {
