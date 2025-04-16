@@ -49,13 +49,26 @@ const UploadFile = () => {
         }
     };
 
-    const DownloadCsvDemo = () => {
-        const link = document.createElement('a');
-        link.href = '/demo.csv'; 
-        link.download = 'demo.csv'; 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const DownloadCsvDemo = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch('/demo.csv');
+            const blob = await response.blob();
+
+            const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'demo.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Failed to download demo file');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
