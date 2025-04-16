@@ -186,131 +186,94 @@ const getData = async (req, res) => {
 const allpan = async (req, res) => {
   try {
     const userId = req.params.id;
-    const { page = 1, searchText = "", limit = 10 } = req.query;
+    const { page = 1, searchText = "", limit = 10, type="data" } = req.query;
 
-    const parsedPage = parseInt(page);
-    const parsedLimit = parseInt(limit);
+    // Input validation
+    const parsedPage = Math.max(parseInt(page), 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit), 1), 100);
     const offset = (parsedPage - 1) * parsedLimit;
 
-    const user = await User.findByPk(userId, { attributes: ["isAdmin"] });
+    // Get user with minimal attributes
+    const user = await User.findByPk(userId, { 
+      attributes: ["isAdmin"],
+      raw: true 
+    });
+    
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const whereCondition = user.isAdmin ? {} : { userId };
+    // Determine model and conditions based on type
+    let model, whereCondition;
+    switch(type) {
+      case 'user':
+        if (!user.isAdmin) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        model = User;
+        whereCondition = {};
+        break;
+      
+      case 'panemail':
+        if (!user.isAdmin) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        model = PanEmailData;
+        whereCondition = {};
+        break;
+      
+      case 'data':
+      default:
+        model = Data;
+        whereCondition = user.isAdmin ? {} : { userId };
+        break;
+    }
 
-    const panSearchCondition = searchText
-      ? where(fn("UPPER", col("panNumber")), {
-          [Op.like]: `%${searchText.toUpperCase()}%`,
-        })
-      : {};
+    // Add search condition if provided
+    if (searchText) {
+      whereCondition.panNumber = {
+        [Op.iLike]: `%${searchText}%`
+      };
+    }
 
-    let panEntries = [];
-    let usersDetails = [];
-    let PanEmailDataEntries = [];
-    let totalCount = 0;
-
-    // 1️⃣ Count distinct panNumbers in Data table
-    const totalDataCount = await Data.count({
-      where: {
-        ...whereCondition,
-        ...(searchText ? { [Op.and]: [panSearchCondition] } : {}),
-      },
+    // Get total count (optimized with database-level count)
+    const totalCount = await model.count({
+      where: whereCondition,
       distinct: true,
-      col: "panNumber",
+      col: 'panNumber'
     });
 
-    if (offset < totalDataCount) {
-      panEntries = await Data.findAll({
-        where: {
-          ...whereCondition,
-          ...(searchText ? { [Op.and]: [panSearchCondition] } : {}),
-        },
-        attributes: [
-          "panNumber",
-          [fn("COUNT", col("email")), "emailCount"],
-        ],
-        group: ["panNumber"],
-        order: [[fn("COUNT", col("email")), "DESC"]],
-        offset,
-        limit: parsedLimit,
-        raw: true,
-      });
-    }
-
-    const remainingLimit = parsedLimit - panEntries.length;
-
-    let userTotalCount = 0;
-    let panEmailTotalCount = 0;
-
-    if (user.isAdmin && remainingLimit > 0) {
-      const userOffset = Math.max(offset - totalDataCount, 0);
-
-      userTotalCount = await User.count({
-        where: searchText ? { [Op.and]: [panSearchCondition] } : {},
-        distinct: true,
-        col: "panNumber",
-      });
-
-      if (userOffset < userTotalCount) {
-        usersDetails = await User.findAll({
-          where: searchText ? { [Op.and]: [panSearchCondition] } : {},
-          attributes: [
-            "panNumber",
-            [fn("COUNT", col("email")), "emailCount"],
-          ],
-          group: ["panNumber"],
-          order: [[fn("COUNT", col("email")), "DESC"]],
-          offset: userOffset,
-          limit: remainingLimit,
-          raw: true,
-        });
-      }
-
-      const stillRemaining = remainingLimit - usersDetails.length;
-
-      if (stillRemaining > 0) {
-        const panEmailOffset = Math.max(offset - totalDataCount - userTotalCount, 0);
-
-        panEmailTotalCount = await PanEmailData.count({
-          where: searchText ? { [Op.and]: [panSearchCondition] } : {},
-          distinct: true,
-          col: "panNumber",
-        });
-
-        if (panEmailOffset < panEmailTotalCount) {
-          PanEmailDataEntries = await PanEmailData.findAll({
-            where: searchText ? { [Op.and]: [panSearchCondition] } : {},
-            attributes: [
-              "panNumber",
-              [fn("COUNT", col("Emails")), "emailCount"],
-            ],
-            group: ["panNumber"],
-            order: [[fn("COUNT", col("Emails")), "DESC"]],
-            offset: panEmailOffset,
-            limit: stillRemaining,
-            raw: true,
-          });
-        }
-      }
-    }
-
-    totalCount = totalDataCount + userTotalCount + panEmailTotalCount;
+    // Get paginated results with only needed fields
+    const results = await model.findAll({
+      where: whereCondition,
+      attributes: [
+        'panNumber',
+        [fn('COUNT', col('email')), 'emailCount']
+      ],
+      group: ['panNumber'],
+      order: [['emailCount', 'DESC']],
+      limit: parsedLimit,
+      offset: offset,
+      raw: true,
+      subQuery: false // Important for performance with GROUP BY
+    });
 
     res.status(200).json({
       totalCount,
-      panEntries,
-      userDetails: usersDetails,
-      PanEmailDataEntries,
+      currentPage: parsedPage,
+      totalPages: Math.ceil(totalCount / parsedLimit),
+      items: results,
+      type: type || 'data'
     });
+
   } catch (error) {
     console.error("Error fetching PAN entries:", error);
-    res.status(500).json({ message: "Error fetching PAN entries", error: error.message });
+    res.status(500).json({ 
+      message: "Error fetching PAN entries", 
+      error: error.message
+    });
   }
 };
-
-
-
 
 // Function to fetch all users
 const getAllUsers = async (req, res) => {

@@ -16,16 +16,15 @@ const ShowPanData = () => {
   const { user } = useContext(UserContext);
   const [loading,setLoading]=useState(false)
   const [currentPagePan, setCurrentPagePan] = useState(1);
-  const [totalCountPan, setTotalCountPan] = useState(0);
  const [searchText,setSearchText]=useState("")
+ const [type,setType]=useState("data")
   const fetchPanEntries = async (page = 1, limit = 10) => {
   try {
     setLoading(true);
     const response = await Axios.get(`/pan-entries/${user.id}`, {
-      params: { page, limit,searchText },
+      params: { page, limit,searchText,type },
     });
     setPanEntries(response.data);
-    setTotalCountPan(response.data.totalCount); 
   } catch (error) {
     console.error("Error fetching PAN entries:", error);
     alert("Failed to fetch PAN entries.");
@@ -35,11 +34,16 @@ const ShowPanData = () => {
 };
 
   useEffect(() => {
-    fetchPanEntries(currentPagePan, 10); 
-  }, [currentPagePan]);
+    fetchPanEntries(currentPagePan, 20); 
+  }, [currentPagePan,type]);
 
   const Search =()=>{
-    fetchPanEntries(currentPagePan, 10);
+    fetchPanEntries(currentPagePan, 20);
+  }
+
+  const handleTypeChange = (event) => {
+    const selectedType = event.target.value;
+    setType(selectedType);
   }
 
   useEffect(() => {
@@ -124,10 +128,17 @@ const ShowPanData = () => {
     }
   }} type="text" value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
         </div>
+        <select id="type" value={type} onChange={handleTypeChange}>
+        <option value="">-- Select --</option>
+        <option value="user">Users</option>
+        <option value="data">Approved Entries</option>
+        <option value="panemail">Other</option>
+      </select>
+
         {loading&&<div className="w-full flex justify-center"><FiLoader className=" animate-spin" /></div>}
         <ul className="space-y-2">
-          {panEntries?.panEntries?.length?<span>Approved entries</span>:<></>}
-          {panEntries?.panEntries?.map((entry) => (
+          {panEntries?.panEntries?.length?<span>Result</span>:<></>}
+          {panEntries?.items?.map((entry) => (
             <li
               key={entry.panNumber}
               className={`cursor-pointer p-2 rounded-md flex justify-between items-center ${
@@ -160,97 +171,28 @@ const ShowPanData = () => {
               </button>
             </li>
           ))}
-          {panEntries?.userDetails?.length?<span className="mt-2">Users</span>:<></>}
-          {panEntries?.userDetails?.map((entry) => (
-            <li
-              key={entry.panNumber}
-              className={`cursor-pointer p-2 rounded-md flex justify-between items-center ${
-                selectedPan === entry.panNumber
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-50 hover:bg-gray-100"
-              }`}
-              onClick={() => {
-                setSelectedPan(entry.panNumber);
-                setCurrentPage(1);
-                setSelectedType("users");
-                setShowPanList(false);
-              }}
-            >
-              <div>
-                <span className="font-semibold">{entry.panNumber}</span>
-                <span className="text-sm ml-2">
-                  ({entry.emailCount} emails)
-                </span>
-              </div>
-              {/* <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadData(entry.panNumber);
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <FaDownload />
-              </button> */}
-            </li>
-          ))}
-          {panEntries?.PanEmailDataEntries?.length?<span className="mt-2">Other</span>:null}
-          {panEntries?.PanEmailDataEntries?.map((entry) => (
-            <li
-              key={entry.panNumber}
-              className={`cursor-pointer p-2 rounded-md flex justify-between items-center ${
-                selectedPan === entry.panNumber
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-50 hover:bg-gray-100"
-              }`}
-              onClick={() => {
-                setSelectedPan(entry.panNumber);
-                setCurrentPage(1);
-                setSelectedType("other");
-                setShowPanList(false);
-              }}
-            >
-              <div>
-                <span className="font-semibold">{entry.panNumber}</span>
-                <span className="text-sm ml-2">
-                  ({entry.emailCount} emails)
-                </span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadData(entry.panNumber);
-                  setSelectedDownloadType("other")
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <FaDownload />
-              </button>
-            </li>
-          ))}
         </ul>
-       {totalCountPan?<div className="mt-4 flex justify-center space-x-2">
-  <button
-    className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-    onClick={() => setCurrentPagePan((prev) => Math.max(prev - 1, 1))}
-    disabled={currentPage === 1}
-  >
-    Previous
-  </button>
-  <span className="px-2 py-1">{currentPagePan}</span>
-  <button
-    className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-    onClick={() => setCurrentPagePan((prev) =>
-      panEntries && panEntries.totalCount
-        ? Math.ceil(totalCountPan / 10) > prev
-        : false
-          ? prev
-          : prev + 1
-    )}
-    disabled={currentPagePan >= Math.ceil(totalCountPan / 10)}
-  >
-    Next
-  </button>
-</div>:<></>}
+        {panEntries?.totalCount ? (
+  <div className="mt-4 flex justify-center space-x-2">
+    <button
+      className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+      onClick={() => setCurrentPagePan((prev) => Math.max(prev - 1, 1))}
+      disabled={currentPagePan === 1}
+    >
+      Previous
+    </button>
+    <span className="px-2 py-1">
+      Page {currentPagePan} of {panEntries.totalPages}
+    </span>
+    <button
+      className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+      onClick={() => setCurrentPagePan((prev) => prev + 1)}
+      disabled={currentPagePan >= panEntries.totalPages}
+    >
+      Next
+    </button>
+  </div>
+) : null}
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">
