@@ -236,7 +236,7 @@ const allpan = async (req, res) => {
     // Add search condition if provided and applicable
     if (searchText && (type === 'panemail' || type === 'data')) {
       whereCondition.panNumber = {
-        [Op.iLike]: `%${searchText}%`
+        [Op.like]: `%${searchText.toLowerCase()}%`
       };
     }
 
