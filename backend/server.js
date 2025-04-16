@@ -78,7 +78,7 @@ const initializeOtpTable = async () => {
     await OtpModel.initTable(5); // 5 retries
 
     // Then sync other models
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ alter: false });
     console.log("✅ All tables verified");
 
     // Start cleanup job only after tables are ready
