@@ -4,9 +4,9 @@ const sequelize = require("../config/database"); // Import sequelize
 const Data = require("../models/dataSchema");
 const User = require("../models/userSchema");
 const processDataInBatches = require("../processDataInBatches");
-const mongoose = require("mongoose");
 const FileRequest = require("../models/fileRequests");
 const path = require("path");
+const { Parser } = require('json2csv')
 const PanEmailData = require("../models/panEmailDataSchema");
 const { Op, fn, col, where, literal } = require("sequelize");
 
@@ -647,8 +647,77 @@ const deleteFileRequest = async (req, res) => {
   }
 };
 
+const downloadCsv = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+
+    // Fetch all data entries associated with the requestId
+    const dataEntries = await Data.findAll({
+      where: { fileRequestId: requestId },
+      raw: true
+    });
+
+    if (!dataEntries || dataEntries.length === 0) {
+      return res.status(404).json({ message: "No data found for this request." });
+    }
+
+    // Transform data into CSV format
+    const csvData = [];
+    dataEntries.forEach(entry => {
+      // Parse the JSON email array
+      const emails = JSON.parse(entry.email);
+      
+      // Create a row for each email associated with the PAN
+      emails.forEach(email => {
+        csvData.push({
+          email: email,
+          pan: entry.panNumber
+        });
+      });
+    });
+
+    // Configure CSV parser
+    const fields = ['email', 'pan'];
+    const opts = { fields };
+    const parser = new Parser(opts);
+    const csv = parser.parse(csvData);
+
+    // Create a unique filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `data-export-${requestId}-${timestamp}.csv`;
+    const filePath = path.join(__dirname, '../temp', filename);
+
+    // Ensure temp directory exists
+    if (!fs.existsSync(path.dirname(filePath))) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    }
+
+    // Write CSV to file
+    fs.writeFileSync(filePath, csv);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    // Stream the file and then delete it
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on('close', () => {
+      fs.unlinkSync(filePath); // Clean up the temp file
+    });
+
+  } catch (error) {
+    console.error("Error generating CSV:", error);
+    return res.status(500).json({ 
+      message: "Error generating CSV export",
+      error: error.message 
+    });
+  }
+};
 
 module.exports = {
+  downloadCsv,
   uploadFile,
   allpan,
   getData,

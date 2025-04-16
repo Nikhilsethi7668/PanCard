@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { UserContext } from '../Context/UserContext';
 import Axios from '../Lib/Axios';
+import { FaDownload } from 'react-icons/fa';
 
 // Status color mapping
 const approvalColors = {
@@ -31,6 +32,79 @@ const UserRequests = () => {
             console.error('Error deleting data:', error);
         }
     }
+
+    const handleDownloadApprovedData = async (requestId) => {
+        try {
+          // 1. Make the API request with responseType: 'blob'
+          const response = await Axios.get(`/upload/requests/get-csv/${requestId}`, {
+            responseType: 'blob' // Important for file downloads
+          });
+      
+          // 2. Create a download URL from the blob
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+          // 3. Extract filename from headers or create one
+          const contentDisposition = response.headers['content-disposition'];
+          let filename = `approved-data-${requestId}.csv`;
+          
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+      
+          // 4. Create a temporary anchor element to trigger download
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+      
+          // 5. Trigger the download
+          link.click();
+      
+          // 6. Clean up
+          link.parentNode.removeChild(link);
+          window.URL.revokeObjectURL(url);
+      
+        } catch (error) {
+          console.error('Error downloading CSV:', error);
+          // Handle errors (show toast, alert, etc.)
+          alert('Failed to download CSV. Please try again.');
+        }
+      };
+    const handleDownloadData = async (requestId) => {
+        try {
+            const response = await Axios.get(`/upload/download/${requestId}`, {
+                responseType: 'blob', 
+            });
+    
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+    
+            // Try to extract filename from headers, fallback if not present
+            const disposition = response.headers['content-disposition'];
+            let filename = 'downloaded-file';
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition
+                    .split('filename=')[1]
+                    .replace(/["']/g, '');
+            }
+    
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+        }
+    };
+    
+
     useEffect(() => {
         if (user?.id) {
             fetchUserRequests(filter);
@@ -61,7 +135,7 @@ const UserRequests = () => {
                 {requests.map((request) => (
                     <li key={request.id} className="mb-4 p-4 border rounded-lg shadow-sm">
                         <div className="flex justify-between items-center mb-2">
-                            <p className="text-lg font-semibold">{request.fileName}</p>
+                           <div className='flex items-center gap-1'> <p className="text-lg font-semibold">{request.fileName}</p> {request.approvalStage === 'pending'?<FaDownload onClick={()=>handleDownloadData(request.id)} className=' cursor-pointer'/>:request.approvalStage === 'approved'?<FaDownload onClick={()=>handleDownloadApprovedData(request.id)} className=' cursor-pointer'/>:null} </div>
                             <span
                                 className={`px-3 py-1 rounded-full text-sm font-semibold ${approvalColors[request.approvalStage]}`}
                             >

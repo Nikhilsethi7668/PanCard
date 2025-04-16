@@ -31,6 +31,10 @@ router.put(
   "/upload/requests/delete/:requestId",
   dataController.deleteFileRequest
 );
+router.get(
+  "/upload/requests/get-csv/:requestId",
+  dataController.downloadCsv
+);
 router.put("/upload/requests/:requestId",authMiddleware, dataController.updateRequestStatus);
 // router.post("/upload/invoice");
 
