@@ -155,9 +155,9 @@ const ShowPanData = () => {
             >
               <div>
                 <span className="font-semibold">{entry.panNumber}</span>
-                <span className="text-sm ml-2">
+                {/* <span className="text-sm ml-2">
                   ({entry.emailCount} emails)
-                </span>
+                </span> */}
               </div>
               <button
                 onClick={(e) => {
