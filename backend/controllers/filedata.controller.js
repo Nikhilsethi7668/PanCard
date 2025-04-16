@@ -212,7 +212,7 @@ const allpan = async (req, res) => {
         }
         model = User;
         whereCondition = {};
-        attributes = ['id', 'username', 'email']; // Example attributes
+        attributes = ['id', 'username', "panNumber",'email']; // Example attributes
         break;
       
       case 'panemail':
