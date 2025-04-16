@@ -186,7 +186,7 @@ const getData = async (req, res) => {
 const allpan = async (req, res) => {
   try {
     const userId = req.params.id;
-    const { page = 1, searchText = "", limit = 10, type="data" } = req.query;
+    const { page = 1, searchText = "", limit = 10, type = "data" } = req.query;
 
     // Input validation
     const parsedPage = Math.max(parseInt(page), 1);
@@ -204,7 +204,7 @@ const allpan = async (req, res) => {
     }
 
     // Determine model and conditions based on type
-    let model, whereCondition;
+    let model, whereCondition, attributes;
     switch(type) {
       case 'user':
         if (!user.isAdmin) {
@@ -212,6 +212,7 @@ const allpan = async (req, res) => {
         }
         model = User;
         whereCondition = {};
+        attributes = ['id', 'username', 'email']; // Example attributes
         break;
       
       case 'panemail':
@@ -220,56 +221,71 @@ const allpan = async (req, res) => {
         }
         model = PanEmailData;
         whereCondition = {};
+        // For JSON array, we'll need to handle differently
+        attributes = ['id', 'panNumber', 'email'];
         break;
       
       case 'data':
       default:
         model = Data;
         whereCondition = user.isAdmin ? {} : { userId };
+        attributes = ['id', 'panNumber', 'email']; // Adjust as needed
         break;
     }
 
-    // Add search condition if provided
-    if (searchText) {
+    // Add search condition if provided and applicable
+    if (searchText && (type === 'panemail' || type === 'data')) {
       whereCondition.panNumber = {
         [Op.iLike]: `%${searchText}%`
       };
     }
 
-    // Get total count (optimized with database-level count)
+    // Get total count
     const totalCount = await model.count({
-      where: whereCondition,
-      distinct: true,
-      col: 'panNumber'
+      where: whereCondition
     });
 
-    // Get paginated results with only needed fields
-    const results = await model.findAll({
-      where: whereCondition,
-      attributes: [
-        'panNumber',
-        [fn('COUNT', col('email')), 'emailCount']
-      ],
-      group: ['panNumber'],
-      order: [['emailCount', 'DESC']],
-      limit: parsedLimit,
-      offset: offset,
-      raw: true,
-      subQuery: false // Important for performance with GROUP BY
-    });
+    // Get paginated results
+    let results;
+    if (type === 'panemail') {
+      // Special handling for PanEmailData with JSON emails
+      results = await model.findAll({
+        where: whereCondition,
+        attributes: [
+          'id',
+          'panNumber',
+          [sequelize.fn('jsonb_array_length', sequelize.col('email')), 'emailCount'],
+          'email'
+        ],
+        order: [['panNumber', 'ASC']],
+        limit: parsedLimit,
+        offset: offset,
+        raw: true
+      });
+    } else {
+      // Standard handling for other types
+      results = await model.findAll({
+        where: whereCondition,
+        attributes: attributes,
+        order: [['id', 'ASC']],
+        limit: parsedLimit,
+        offset: offset,
+        raw: true
+      });
+    }
 
     res.status(200).json({
       totalCount,
       currentPage: parsedPage,
       totalPages: Math.ceil(totalCount / parsedLimit),
       items: results,
-      type: type || 'data'
+      type: type
     });
 
   } catch (error) {
-    console.error("Error fetching PAN entries:", error);
+    console.error("Error fetching data:", error);
     res.status(500).json({ 
-      message: "Error fetching PAN entries", 
+      message: "Error fetching data", 
       error: error.message
     });
   }
