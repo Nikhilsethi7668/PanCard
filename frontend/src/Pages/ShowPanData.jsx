@@ -7,7 +7,6 @@ import Axios from "../Lib/Axios";
 const ShowPanData = () => {
   const [panEntries, setPanEntries] = useState([]);
   const [selectedPan, setSelectedPan] = useState(null);
-  const [selectedDownloadType, setSelectedDownloadType] = useState("");
   const [emails, setEmails] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -78,9 +77,9 @@ const ShowPanData = () => {
   const downloadData = async (panNumber) => {
     try {
       const response = await Axios.get(
-        `http://localhost:4000/api/data/${panNumber}/download`,
+        `/data/${panNumber}/download`,
         {
-          params: { userId: user.id,type:selectedDownloadType },
+          params: { userId: user.id,type:type },
         }
       );
 
@@ -161,7 +160,6 @@ const ShowPanData = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   downloadData(entry.panNumber);
-                  setSelectedDownloadType("approved-entries")
                 }}
                 className="text-red-500 hover:text-red-700"
               >
