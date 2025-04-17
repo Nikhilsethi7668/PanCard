@@ -1,0 +1,2 @@
+invoiceNumber,invoiceDate,dueDate,billToName,billToCompany,billToAddress,billToEmail,panNumber,taxType,taxPercentage,taxAmount,totalWithoutTax,total,notes,paymentStatus
+INV-2025-0055,2025-04-10,2025-04-25,Kavita Joshi,Joshi Artworks,"Bandra West, Mumbai, Maharashtra",kavita@joshiartworks.com,AAAAA9999B,SGST+CGST,18,3600,20000,23600,Final payment for project delivery.,overdue

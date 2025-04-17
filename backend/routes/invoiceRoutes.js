@@ -22,5 +22,10 @@ router.put(
   authMiddleware,
   invoiceController.markAsRead
 );
+router.put(
+  "/status-update/:invoiceId",
+  authMiddleware,
+  invoiceController.updateInvoiceStatus
+);
 
 module.exports = router;

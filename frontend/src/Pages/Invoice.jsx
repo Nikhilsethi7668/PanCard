@@ -6,7 +6,7 @@ import autoTable from "jspdf-autotable";
 import { UserContext } from "../Context/UserContext";
 import Axios from "../Lib/Axios";
 import SendInvoiceDialog from "../Components/invoice/SendInvoiceDialog";
-import { FaSearch } from "react-icons/fa";
+import { FaDownload, FaSearch } from "react-icons/fa";
 
 const Invoice = () => {
   const { user } = useContext(UserContext);
@@ -83,7 +83,8 @@ const Invoice = () => {
   const markRead =async(id)=>{
     try {
       await Axios.put("/invoice/mark-read/"+id);
-      fetchInvoices(filters)
+      await fetchInvoices(filters).then((data) => {        
+        setInvoices(data);})
     } catch (error) {
       console.error("Error reading invoices:", error);
       return;
@@ -135,22 +136,52 @@ const Invoice = () => {
     doc.save(`${invoice.invoiceNumber}.pdf`);
   };
 
+  const DownloadCsvDemo = () => {
+    const link = document.createElement('a');
+    link.href = '/dummyInvoice.csv'; 
+    link.download = 'dummyInvoice.csv'; 
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
+const [status, setStatus] = useState(currentStatus);
+const statusOptions = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'overdue', label: 'Overdue' },
+];
+
+
+const handleStatusUpdate = async (invoiceId) => {
+  try {
+  
+    const response = await Axios.put(
+      `/invoices/status-update/${invoiceId}`,{ status });
+     
+      fetchInvoices(filters).then((data) => {        
+        setInvoices(data);
+    });
+  } catch (err) {
+    console.log(err);
+    
+  } 
+};
 
   return (
     <div className="w-full lg:max-w-2xl px-4 mx-auto mt-10">
       <div className="flex px-2 py-3 border-b justify-between items-center">
         <h1 className=" text-xl font-semibold">All invoices</h1>
-        {user.isAdmin && <SendInvoiceDialog />}
+        {user.isAdmin && <div className="flex items-center gap-6"> <div className="flex items-center gap-1"> (format)<FaDownload className=' cursor-pointer' onClick={DownloadCsvDemo}/></div> <SendInvoiceDialog /></div>}
       </div>
       <div className="flex flex-wrap gap-4 mt-4">
-         <div className="flex gap-2">
+      {user.isAdmin && ( <div className="flex gap-2">
                 <input className="border h-8 w-full" type="text"  onKeyDown={(e) => {
     if (e.key === 'Enter') {
       Search();
     }
   }} value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
-                </div>
+                </div>)}
         {user.isAdmin && (
           <select
             name="userid"
@@ -160,7 +191,7 @@ const Invoice = () => {
             <option value="">Select User</option>
             {allUsers?.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.username}
+                {u?.username}
               </option>
             ))}
           </select>
@@ -209,21 +240,24 @@ const Invoice = () => {
                   onClick={() => generatePDF(invoice)}
                   className="flex gap-1 hover:underline cursor-pointer text-white hover:text-black items-center"
                 >
-                 {!invoice.isRead&&<span className="h-2 w-2 rounded bg-green-500"></span>} <h2 className="text-lg text-black font-semibold">
+                 {!invoice?.isRead&&<span className="h-2 w-2 rounded bg-green-500"></span>} <h2 className="text-lg text-black font-semibold">
                     {invoice.invoiceNumber}
                   </h2>
                   <FiDownload strokeWidth={3} />
                 </div>
+                <div className=" flex flex-col gap-2">
                 <span
-                  className={`px-2 py-1 rounded text-xs ${invoice.paymentStatus === "paid"
+                  className={`px-2 py-1 rounded text-xs ${invoice?.paymentStatus === "paid"
                     ? "bg-green-100 text-green-700"
-                    : invoice.paymentStatus === "overdue"
+                    : invoice?.paymentStatus === "overdue"
                       ? "bg-red-100 text-red-700"
                       : "bg-yellow-100 text-yellow-700"
                     }`}
                 >
                   {invoice.paymentStatus}
                 </span>
+               
+                </div>
               </div>
 
               <p className="text-sm text-gray-600">
@@ -247,6 +281,29 @@ const Invoice = () => {
               </p>
 
               <p className="text-xs text-gray-500 italic">{invoice.notes}</p>
+              {user.isAdmin?
+                  <div className="status-updater">
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={isUpdating}
+                    className="rounded border-2"
+                  >
+                    {statusOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+            
+                  <button
+                    onClick={()=>handleStatusUpdate(invoice.id)}
+                    className="update-btn p-2"
+                  >
+                    {'Update Status'}
+                  </button>
+                </div>
+                :null}
             </div>
           ))
         )}

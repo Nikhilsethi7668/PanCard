@@ -5,6 +5,7 @@ const Sequelize = require("sequelize");
 const { Op } = Sequelize;
 const Invoice = require("../models/Invoice");
 const { Where } = require("sequelize/lib/utils");
+const sequelize = require("sequelize");
 
 exports.sendInvoice = async (req, res) => {
   try {
@@ -226,5 +227,78 @@ exports.markAsRead = async (req, res) => {
     res.json({ success: true, message: "Invoice marked as read" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateInvoiceStatus = async (req, res) => {
+  try {
+    const { isAdmin } = req.user; 
+    const { invoiceId } = req.params;
+    const { status } = req.body;
+
+    // Validate required fields
+    if (!invoiceId || !status) {
+      return res.status(400).json({ 
+        error: "Invoice ID and status are required" 
+      });
+    }
+
+    // Check if user is admin
+    if (!isAdmin) {
+      return res.status(403).json({ 
+        error: "Only admin users can update invoice status" 
+      });
+    }
+
+    // Validate status value
+    const validStatuses = ['pending', 'paid', 'overdue', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      });
+    }
+
+    // Find the invoice
+    const invoice = await Invoice.findByPk(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ 
+        error: "Invoice not found" 
+      });
+    }
+
+    // Additional business logic checks
+    if (status === 'paid' && invoice.paymentStatus === 'paid') {
+      return res.status(400).json({ 
+        error: "Invoice is already marked as paid" 
+      });
+    }
+
+    // Update the invoice
+    const updatedInvoice = await invoice.update({ 
+      paymentStatus: status,
+      ...(status === 'paid' && { paymentDate: new Date() })
+    });
+
+    // Optionally log the status change
+    await InvoiceHistory.create({
+      invoiceId: invoice.id,
+      changedBy: req.user.id,
+      previousStatus: invoice.paymentStatus,
+      newStatus: status,
+      changeDate: new Date()
+    });
+
+    return res.json({ 
+      success: true,
+      message: "Invoice status updated successfully",
+      invoice: updatedInvoice 
+    });
+
+  } catch (error) {
+    console.error("Error updating invoice status:", error);
+    return res.status(500).json({ 
+      error: "Internal server error",
+      details: error.message 
+    });
   }
 };

@@ -127,12 +127,12 @@ const ShowPanData = () => {
     }
   }} type="text" value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
         </div>
-        <select id="type" value={type} onChange={handleTypeChange}>
+       {user?.isAdmin?<select id="type" value={type} onChange={handleTypeChange}>
         <option value="">-- Select --</option>
         <option value="user">Users</option>
         <option value="data">Approved Entries</option>
         <option value="panemail">Other</option>
-      </select>
+      </select>:null}
 
         {loading&&<div className="w-full flex justify-center"><FiLoader className=" animate-spin" /></div>}
         <ul className="space-y-2">
