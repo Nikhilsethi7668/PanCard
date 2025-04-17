@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Axios from "../../Lib/Axios";
 
-export default function SendInvoiceDialog() {
+export default function SendInvoiceDialog({ReFetch}) {
   const [isOpen, setIsOpen] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,7 @@ export default function SendInvoiceDialog() {
       });
       console.log("Success:", res.data);
       alert("Invoice sent successfully!");
+      ReFetch()
       setIsOpen(false);
     } catch (err) {
       console.error("Error uploading files:", err);

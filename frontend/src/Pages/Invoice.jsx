@@ -87,7 +87,7 @@ const Invoice = () => {
                 onClick={DownloadCsvDemo}
               />
             </div>
-            <SendInvoiceDialog />
+            <SendInvoiceDialog ReFetch={fetchInvoices} />
           </div>
         )}
       </div>
