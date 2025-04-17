@@ -121,11 +121,11 @@ exports.getAllInvoices = async (req, res) => {
     if (month && year) {
       where[Op.and] = [
         ...(where[Op.and] || []),
-        where(
+       new Where(
           Sequelize.fn("MONTH", Sequelize.col("invoiceDate")),
           month
         ),
-        where(
+      new  Where(
           Sequelize.fn("YEAR", Sequelize.col("invoiceDate")),
           year
         )
