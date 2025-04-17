@@ -150,6 +150,7 @@ const Invoice = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState(null);
   const statusOptions = [
+    { value: "Select", label: "" },
     { value: "pending", label: "Pending" },
     { value: "paid", label: "Paid" },
     { value: "overdue", label: "Overdue" },
@@ -335,7 +336,7 @@ const Invoice = () => {
 
                   <button
                     onClick={() => handleStatusUpdate(invoice.id)}
-                    disabled={isUpdating || status === invoice.paymentStatus}
+                    disabled={isUpdating || status === invoice.paymentStatus|| !status}
                     className="update-btn h-8 bg-slate-100 px-2 ml-3 hover:bg-slate-200 rounded"
                   >
                     {isUpdating ? "Updating..." : "Update Status"}
