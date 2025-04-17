@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { FiDownload } from "react-icons/fi";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import Axios from "../Lib/Axios";
+import Axios from "../../Lib/Axios";
 
 const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
   const [status, setStatus] = useState("");
