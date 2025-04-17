@@ -81,31 +81,44 @@ const AdminDashboard = () => {
     const handleDownloadData = async (requestId) => {
         try {
             const response = await Axios.get(`/upload/download/${requestId}`, {
-                responseType: 'blob', 
+                responseType: 'blob',
             });
-    
-            const blob = new Blob([response.data]);
+
+            // Create blob with explicit CSV type
+            const blob = new Blob([response.data], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-    
-            // Try to extract filename from headers, fallback if not present
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Extract filename from headers or use default
             const disposition = response.headers['content-disposition'];
-            let filename = 'downloaded-file';
+            let filename = 'data.csv'; // Default filename
+
             if (disposition && disposition.includes('filename=')) {
-                filename = disposition
-                    .split('filename=')[1]
+                filename = disposition.split('filename=')[1]
+                    .split(';')[0]
                     .replace(/["']/g, '');
+
+                // Ensure filename ends with .csv
+                if (!filename.toLowerCase().endsWith('.csv')) {
+                    filename = filename.split('.')[0] + '.csv';
+                }
             }
-    
-            a.download = filename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+
+            // Clean up
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(link);
+            }, 100);
+
         } catch (error) {
             console.error('Error downloading file:', error);
+            alert('Failed to download CSV file');
         }
     };
     
