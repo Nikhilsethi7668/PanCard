@@ -324,7 +324,7 @@ const Invoice = () => {
                     disabled={isUpdating}
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="rounded h-8 border-2"
+                    className="rounded px-2 h-8 border-2"
                   >
                     {statusOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -336,7 +336,7 @@ const Invoice = () => {
                   <button
                     onClick={() => handleStatusUpdate(invoice.id)}
                     disabled={isUpdating || status === invoice.paymentStatus}
-                    className="update-btn h-8 bg-slate-100 hover:bg-slate-200 rounded"
+                    className="update-btn h-8 bg-slate-100 px-2 ml-3 hover:bg-slate-200 rounded"
                   >
                     {isUpdating ? "Updating..." : "Update Status"}
                   </button>
