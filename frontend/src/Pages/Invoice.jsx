@@ -340,11 +340,6 @@ const Invoice = () => {
                   >
                     {isUpdating ? "Updating..." : "Update Status"}
                   </button>
-                  {success && (
-                    <div className="success-message">
-                      Status updated successfully!
-                    </div>
-                  )}
 
                   {error && <div className="error-message">{error}</div>}
                 </div>
