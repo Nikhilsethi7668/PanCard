@@ -11,7 +11,7 @@ import { FaDownload, FaSearch } from "react-icons/fa";
 const Invoice = () => {
   const { user } = useContext(UserContext);
   const currentYear = new Date().getFullYear().toString();
-   const [searchText,setSearchText]=useState("")
+  const [searchText, setSearchText] = useState("");
   const [filters, setFilters] = useState({
     userid: user.isAdmin ? "" : user.id,
     month: "",
@@ -29,11 +29,12 @@ const Invoice = () => {
     }
   };
   useEffect(() => {
-    if (user.isAdmin) { fetchAllUsers(); }
-    return
+    if (user.isAdmin) {
+      fetchAllUsers();
+    }
+    return;
   }, []);
 
-  
   const months = [
     { value: "01", label: "January" },
     { value: "02", label: "February" },
@@ -57,7 +58,7 @@ const Invoice = () => {
   const fetchInvoices = async (filters) => {
     try {
       const response = await Axios.get("/invoice/get", {
-        params: {...filters,searchText},
+        params: { ...filters, searchText },
       });
 
       return response.data;
@@ -69,8 +70,8 @@ const Invoice = () => {
 
   useEffect(() => {
     if (filters.userid || filters.month || filters.year) {
-      fetchInvoices(filters).then((data) => {        
-          setInvoices(data);
+      fetchInvoices(filters).then((data) => {
+        setInvoices(data);
       });
     }
   }, [filters]);
@@ -79,22 +80,22 @@ const Invoice = () => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
-
-  const markRead =async(id)=>{
+  const markRead = async (id) => {
     try {
-      await Axios.put("/invoice/mark-read/"+id);
-      await fetchInvoices(filters).then((data) => {        
-        setInvoices(data);})
+      await Axios.put("/invoice/mark-read/" + id);
+      await fetchInvoices(filters).then((data) => {
+        setInvoices(data);
+      });
     } catch (error) {
       console.error("Error reading invoices:", error);
       return;
     }
-  }
-  const Search =()=>{
-    fetchInvoices(filters).then((data) => {        
+  };
+  const Search = () => {
+    fetchInvoices(filters).then((data) => {
       setInvoices(data);
-  });
-  }
+    });
+  };
   const generatePDF = (invoice) => {
     const doc = new jsPDF();
 
@@ -132,56 +133,88 @@ const Invoice = () => {
       14,
       doc.lastAutoTable.finalY + 18
     );
-    markRead(invoice.id)
+    markRead(invoice.id);
     doc.save(`${invoice.invoiceNumber}.pdf`);
   };
 
   const DownloadCsvDemo = () => {
-    const link = document.createElement('a');
-    link.href = '/dummyInvoice.csv'; 
-    link.download = 'dummyInvoice.csv'; 
+    const link = document.createElement("a");
+    link.href = "/dummyInvoice.csv";
+    link.download = "dummyInvoice.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-};
+  };
 
-const [status, setStatus] = useState("");
-const statusOptions = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'overdue', label: 'Overdue' },
-];
+  const [status, setStatus] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState(null);
+  const statusOptions = [
+    { value: "pending", label: "Pending" },
+    { value: "paid", label: "Paid" },
+    { value: "overdue", label: "Overdue" },
+  ];
 
+  const handleStatusUpdate = async (invoiceId) => {
+    try {
+      setIsUpdating(true);
+      setError(null);
+      const response = await Axios.put(`/invoices/status-update/${invoiceId}`, {
+        status,
+      });
 
-const handleStatusUpdate = async (invoiceId) => {
-  try {
-  
-    const response = await Axios.put(
-      `/invoices/status-update/${invoiceId}`,{ status });
-     
-      fetchInvoices(filters).then((data) => {        
+      fetchInvoices(filters).then((data) => {
         setInvoices(data);
-    });
-  } catch (err) {
-    console.log(err);
-    
-  } 
-};
+      });
+    } catch (err) {
+      console.log(err);
+      setError(err.response?.data?.error || "Failed to update status");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="w-full lg:max-w-2xl px-4 mx-auto mt-10">
       <div className="flex px-2 py-3 border-b justify-between items-center">
         <h1 className=" text-xl font-semibold">All invoices</h1>
-        {user.isAdmin && <div className="flex items-center gap-6"> <div className="flex items-center gap-1"> (format)<FaDownload className=' cursor-pointer' onClick={DownloadCsvDemo}/></div> <SendInvoiceDialog /></div>}
+        {user.isAdmin && (
+          <div className="flex items-center gap-6">
+            {" "}
+            <div className="flex items-center gap-1">
+              {" "}
+              (format)
+              <FaDownload
+                className=" cursor-pointer"
+                onClick={DownloadCsvDemo}
+              />
+            </div>{" "}
+            <SendInvoiceDialog />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-4 mt-4">
-      {user.isAdmin && ( <div className="flex gap-2">
-                <input className="border h-8 w-full" type="text"  onKeyDown={(e) => {
-    if (e.key === 'Enter') {
-      Search();
-    }
-  }} value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
-                </div>)}
+        {user.isAdmin && (
+          <div className="flex gap-2">
+            <input
+              className="border h-8 w-full"
+              type="text"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  Search();
+                }
+              }}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />{" "}
+            <button
+              onClick={Search}
+              className="p-2 bg-slate-200 hover:bg-slate-100 rounded"
+            >
+              <FaSearch />
+            </button>
+          </div>
+        )}
         {user.isAdmin && (
           <select
             name="userid"
@@ -240,28 +273,32 @@ const handleStatusUpdate = async (invoiceId) => {
                   onClick={() => generatePDF(invoice)}
                   className="flex gap-1 hover:underline cursor-pointer text-white hover:text-black items-center"
                 >
-                 {!invoice?.isRead&&<span className="h-2 w-2 rounded bg-green-500"></span>} <h2 className="text-lg text-black font-semibold">
+                  {!invoice?.isRead && (
+                    <span className="h-2 w-2 rounded bg-green-500"></span>
+                  )}{" "}
+                  <h2 className="text-lg text-black font-semibold">
                     {invoice.invoiceNumber}
                   </h2>
                   <FiDownload strokeWidth={3} />
                 </div>
                 <div className=" flex flex-col gap-2">
-                <span
-                  className={`px-2 py-1 rounded text-xs ${invoice?.paymentStatus === "paid"
-                    ? "bg-green-100 text-green-700"
-                    : invoice?.paymentStatus === "overdue"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-yellow-100 text-yellow-700"
+                  <span
+                    className={`px-2 py-1 rounded text-xs ${
+                      invoice?.paymentStatus === "paid"
+                        ? "bg-green-100 text-green-700"
+                        : invoice?.paymentStatus === "overdue"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
                     }`}
-                >
-                  {invoice.paymentStatus}
-                </span>
-               
+                  >
+                    {invoice.paymentStatus}
+                  </span>
                 </div>
               </div>
 
               <p className="text-sm text-gray-600">
-                <strong>Pan number:</strong>{invoice.panNumber}
+                <strong>Pan number:</strong>
+                {invoice.panNumber}
               </p>
               <p className="text-sm text-gray-600">
                 <strong>Bill To:</strong> {invoice.billToName} (
@@ -281,28 +318,37 @@ const handleStatusUpdate = async (invoiceId) => {
               </p>
 
               <p className="text-xs text-gray-500 italic">{invoice.notes}</p>
-              {user.isAdmin?
-                  <div className="status-updater">
+              {user.isAdmin ? (
+                <div className="status-updater">
                   <select
+                    disabled={isUpdating}
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="rounded border-2"
+                    className="rounded h-8 border-2"
                   >
-                    {statusOptions.map(option => (
+                    {statusOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
-            
+
                   <button
-                    onClick={()=>handleStatusUpdate(invoice.id)}
-                    className="update-btn p-2"
+                    onClick={() => handleStatusUpdate(invoice.id)}
+                    disabled={isUpdating || status === invoice.paymentStatus}
+                    className="update-btn h-8 bg-slate-100 hover:bg-slate-200 rounded"
                   >
-                    {'Update Status'}
+                    {isUpdating ? "Updating..." : "Update Status"}
                   </button>
+                  {success && (
+                    <div className="success-message">
+                      Status updated successfully!
+                    </div>
+                  )}
+
+                  {error && <div className="error-message">{error}</div>}
                 </div>
-                :null}
+              ) : null}
             </div>
           ))
         )}
