@@ -145,7 +145,7 @@ const Invoice = () => {
     document.body.removeChild(link);
 };
 
-const [status, setStatus] = useState(currentStatus);
+const [status, setStatus] = useState("");
 const statusOptions = [
   { value: 'pending', label: 'Pending' },
   { value: 'paid', label: 'Paid' },
