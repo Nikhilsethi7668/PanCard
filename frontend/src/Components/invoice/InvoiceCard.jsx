@@ -69,7 +69,7 @@ const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
       setIsUpdating(true);
       setError(null);
       
-      await Axios.put(`/invoices/status-update/${invoice.id}`, { status });
+      await Axios.put(`/invoice/status-update/${invoice.id}`, { status });
       refreshInvoices();
       
     } catch (err) {
@@ -146,7 +146,7 @@ const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
           <button
             onClick={handleStatusUpdate}
             disabled={isUpdating || !status || status === invoice.paymentStatus}
-            className="h-8 bg-slate-100 px-3 ml-3 hover:bg-slate-200 rounded disabled:opacity-50"
+            className="h-8 bg-slate-100 px-3 ml-3 hover:bg-slate-200 rounded disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isUpdating ? "Updating..." : "Update"}
           </button>
