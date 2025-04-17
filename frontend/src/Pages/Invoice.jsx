@@ -286,7 +286,6 @@ const handleStatusUpdate = async (invoiceId) => {
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    disabled={isUpdating}
                     className="rounded border-2"
                   >
                     {statusOptions.map(option => (
