@@ -279,15 +279,6 @@ exports.updateInvoiceStatus = async (req, res) => {
       ...(status === 'paid' && { paymentDate: new Date() })
     });
 
-    // Optionally log the status change
-    await InvoiceHistory.create({
-      invoiceId: invoice.id,
-      changedBy: req.user.id,
-      previousStatus: invoice.paymentStatus,
-      newStatus: status,
-      changeDate: new Date()
-    });
-
     return res.json({ 
       success: true,
       message: "Invoice status updated successfully",
