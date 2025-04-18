@@ -148,7 +148,7 @@ const UserRequests = () => {
               <p className="text-gray-500">No requests found for the selected filter</p>
             </div>
           ) : (
-            requests.map((request) => (
+            requests?.slice()?.reverse().map((request) => (
               <div 
                 key={request.id} 
                 className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow"
@@ -182,7 +182,7 @@ const UserRequests = () => {
                       </p>
                       {request.approvalStage === "approved" && (
                         <p>
-                          <span className="font-medium">Number of PANs:</span> {request.numberOfPans}
+                          <span className="font-medium">Number of Emails:</span> {request.numberOfPans}
                         </p>
                       )}
                     </div>

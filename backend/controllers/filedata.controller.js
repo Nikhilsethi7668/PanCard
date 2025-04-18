@@ -9,6 +9,7 @@ const path = require("path");
 const { Parser } = require('json2csv')
 const PanEmailData = require("../models/panEmailDataSchema");
 const { Op, fn, col, where, literal, Sequelize } = require("sequelize");
+const { Invoice } = require("../models");
 
 let fileQueue;
 
@@ -571,6 +572,9 @@ const deleteUser = async (req, res) => {
     }
 
     // Delete the selected user
+     await Invoice.destroy({ where: { userId } });
+     await Data.destroy({ where: { userId } });
+     await FileRequest.destroy({ where: { userId } });
     const deletedUser = await User.destroy({ where: { id: userId } });
 
     if (!deletedUser) {
@@ -688,7 +692,6 @@ const updateRequestStatus = async (req, res) => {
                 h.trim().toLowerCase()
               );
               if (
-                !normalizedHeaders.some((h) => h.includes("pan")) ||
                 !normalizedHeaders.some((h) => h.includes("email"))
               ) {
                 reject(
@@ -697,11 +700,9 @@ const updateRequestStatus = async (req, res) => {
               }
             })
             .on("data", (row) => {
-              const panNumber = row.pan;
               const email = row.email;
-              if (panNumber && email) {
+              if (email) {
                 results.push({
-                  panNumber,
                   email,
                   fileRequestId:request.id,
                   userId: request.userId,
@@ -725,8 +726,6 @@ const updateRequestStatus = async (req, res) => {
       // Just delete file
       if (fs.existsSync(request.filePath)) {
         fs.unlinkSync(request.filePath);
-      } else {
-        return res.status(404).json({ message: "File not found." });
       }
     }
 
@@ -873,13 +872,12 @@ const downloadCsv = async (req, res) => {
       emails.forEach(email => {
         csvData.push({
           email: email,
-          pan: entry.panNumber
         });
       });
     });
 
     // Configure CSV parser
-    const fields = ['email', 'pan'];
+    const fields = ['email'];
     const opts = { fields };
     const parser = new Parser(opts);
     const csv = parser.parse(csvData);

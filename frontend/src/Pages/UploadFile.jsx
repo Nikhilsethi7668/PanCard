@@ -14,7 +14,8 @@ const UploadFile = () => {
     const { user } = useContext(UserContext);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
-
+    const [parsedEmails, setParsedEmails] = useState([]);
+    
     const handleFileChange = async (e) => {
         setError('');
         const selectedFile = e.target.files[0];
@@ -27,52 +28,38 @@ const UploadFile = () => {
         }
     
         setFileName(selectedFile.name);
+        setFile(selectedFile); // Store the original file
+        setLoading(true); // Show loading during parsing
         
         // Read and validate the CSV file
         Papa.parse(selectedFile, {
-            header: true,
+            header: false,
             skipEmptyLines: true,
             complete: (results) => {
-                // Check for parsing errors
-                if (results.errors.length > 0) {
-                    console.log('Parsing errors:', results.errors);
-                    setError('Error parsing CSV file. Please check the format.');
-                    return;
-                }
+                const emails = results.data
+                    .map(row => row[0]?.trim())
+                    .filter(Boolean)
+                    .filter(email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)); // Basic email validation
                 
-                // Check if we got any data
-                if (!results.data || results.data.length === 0) {
-                    setError('CSV file is empty or invalid format');
-                    return;
-                }
-                
-                // Check headers - normalize by trimming and lowercasing
-                const headers = results.meta.fields || [];
-                const normalizedHeaders = headers.map(h => h.trim().toLowerCase());
-                
-                if (!normalizedHeaders.includes('email')) {
-                    setError('CSV file must contain an "email" column');
+                if (emails.length === 0) {
+                    setError("No valid emails found.");
                     setFile(null);
                     setFileName('No file selected');
-                    return;
+                } else {
+                    setParsedEmails(emails); // Store parsed emails separately
                 }
-                
-                // Additional validation - check first row has email value
-                const firstRow = results.data[0];
-                if (!firstRow.email && !firstRow.EMAIL && !firstRow.Email) {
-                    setError('Email column exists but no email value found in first row');
-                    return;
-                }
-                
-                setFile(selectedFile);
+                setLoading(false);
             },
             error: (error) => {
-                console.error('CSV parsing error:', error);
-                setError('Error reading CSV file. Please check the file format.');
+                console.error('Parsing error:', error);
+                setError("Failed to parse CSV. Please check the file format.");
+                setFile(null);
+                setFileName('No file selected');
+                setLoading(false);
             }
         });
     };
-
+    
     const handleUploadRequest = async () => {
         if (!file) {
             setError('Please select a valid CSV file with email column');

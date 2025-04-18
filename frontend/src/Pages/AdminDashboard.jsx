@@ -165,7 +165,7 @@ const AdminDashboard = () => {
                                 No requests found for the selected filter
                             </div>
                         ) : (
-                            requests.map((request) => (
+                            requests?.slice()?.reverse().map((request) => (
                                 <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                     <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
                                         <div className="flex-1">
@@ -203,7 +203,7 @@ const AdminDashboard = () => {
                                             
                                             {request.approvalStage === 'approved' && (
                                                 <div className="mt-2 text-sm">
-                                                    <span className="font-medium">Number of PANs:</span> {request.numberOfPans}
+                                                    <span className="font-medium">Number of Emails:</span> {request.numberOfPans}
                                                 </div>
                                             )}
                                         </div>

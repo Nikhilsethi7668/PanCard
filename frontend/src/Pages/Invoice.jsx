@@ -188,7 +188,7 @@ const Invoice = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {invoices.map((invoice) => (
+            {invoices?.slice()?.reverse().map((invoice) => (
               <InvoiceCard
                 key={invoice.id}
                 invoice={invoice}
