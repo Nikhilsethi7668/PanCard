@@ -11,24 +11,32 @@ const processBatch = async (batch, userId, retries = 3, delay = 1000) => {
 
     // Insert or update data in MySQL
     for (const row of batch) {
-      const { panNumber,fileRequestId, email } = row;
+      const { fileRequestId, email } = row;
 
-      if (!panNumber || !email) continue;
+      if ( !email) continue;
 
       // Find or create the PAN entry
-      const [dataEntry, created] = await Data.findOrCreate({
-        where: { panNumber, userId },
-        defaults: { email: [email], fileRequestId, }, // Default value for new entries
+      let dataEntry = await Data.findOne({
+        where: { userId, fileRequestId },
       });
-
-      if (!created) {
-        // Update existing entry
-        const emails = dataEntry.email || [];
-        if (!emails.includes(email)) {
-          emails.push(email);
-          await dataEntry.update({ email: emails });
-        }
+      
+      if (dataEntry) {
+        const updatedEmails = Array.from(new Set([...(dataEntry.email || []), email]));
+      
+        await dataEntry.update({
+          email: updatedEmails,
+        });
+      
+        console.log("Updated existing entry.");
+      } else {
+        dataEntry = await Data.create({
+          userId,
+          fileRequestId,
+          email: [email],
+        });
       }
+      
+
     }
 
     console.log(`Batch processed in ${Date.now() - startTime}ms`);

@@ -118,16 +118,42 @@ exports.getAllInvoices = async (req, res) => {
     }
 
     // Add date filtering
-    if (month && year) {
+    if (year) {
+      if (month) {
+        // Both month and year are provided
+        where[Op.and] = [
+          ...(where[Op.and] || []),
+          Sequelize.where(
+            Sequelize.fn('MONTH', Sequelize.col('invoiceDate')),
+            month
+          ),
+          Sequelize.where(
+            Sequelize.fn('YEAR', Sequelize.col('invoiceDate')),
+            year
+          )
+        ];
+      } else {
+        // Only year is provided
+        where[Op.and] = [
+          ...(where[Op.and] || []),
+          Sequelize.where(
+            Sequelize.fn('YEAR', Sequelize.col('invoiceDate')),
+            year
+          )
+        ];
+      }
+    } else if (month) {
+      // Only month is provided (current year assumed)
+      const currentYear = new Date().getFullYear();
       where[Op.and] = [
         ...(where[Op.and] || []),
-       new Where(
-          Sequelize.fn("MONTH", Sequelize.col("invoiceDate")),
+        Sequelize.where(
+          Sequelize.fn('MONTH', Sequelize.col('invoiceDate')),
           month
         ),
-      new  Where(
-          Sequelize.fn("YEAR", Sequelize.col("invoiceDate")),
-          year
+        Sequelize.where(
+          Sequelize.fn('YEAR', Sequelize.col('invoiceDate')),
+          currentYear
         )
       ];
     }

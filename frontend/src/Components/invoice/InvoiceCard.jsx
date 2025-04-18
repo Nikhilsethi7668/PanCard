@@ -81,7 +81,7 @@ const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
   };
 
   return (
-    <div className="border rounded-xl p-4 shadow-sm space-y-2 bg-white">
+    <div className="border rounded-xl p-4 mt-3 shadow-sm space-y-2 bg-white">
       <div className="flex justify-between items-center">
         <div
           onClick={generatePDF}

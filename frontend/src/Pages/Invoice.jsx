@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "../Context/UserContext";
 import Axios from "../Lib/Axios";
 import SendInvoiceDialog from "../Components/invoice/SendInvoiceDialog";
-import { FaDownload, FaSearch } from "react-icons/fa";
+import { FaDownload, FaSearch, FaFileInvoice } from "react-icons/fa";
 import InvoiceCard from "../Components/invoice/InvoiceCard";
 
 const Invoice = () => {
@@ -16,14 +16,14 @@ const Invoice = () => {
   });
   const [invoices, setInvoices] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchAllUsers = async () => {
     try {
       const response = await Axios.get(`/data/get-all-users/${user.id}`);
       setAllUsers(response.data);
     } catch (error) {
-      alert(error.message);
-      console.log(error.message);
+      console.error("Error fetching users:", error);
     }
   };
 
@@ -46,7 +46,6 @@ const Invoice = () => {
     { value: "10", label: "October" },
     { value: "11", label: "November" },
     { value: "12", label: "December" },
-    
   ];
 
   const years = Array.from({ length: 5 }, (_, i) => {
@@ -55,6 +54,7 @@ const Invoice = () => {
   });
 
   const fetchInvoices = async () => {
+    setIsLoading(true);
     try {
       const response = await Axios.get("/invoice/get", {
         params: { ...filters, searchText },
@@ -63,6 +63,8 @@ const Invoice = () => {
     } catch (error) {
       console.error("Error fetching invoices:", error);
       setInvoices([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -86,99 +88,115 @@ const Invoice = () => {
   };
 
   return (
-    <div className="w-full lg:max-w-2xl px-4 mx-auto mt-10">
-      <div className="flex px-2 py-3 border-b justify-between items-center">
-        <h1 className="text-xl font-semibold">All invoices</h1>
+    <div className="w-full max-w-6xl px-4 mx-auto py-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div className="flex items-center mb-4 md:mb-0">
+          <FaFileInvoice className="text-blue-600 text-2xl mr-3" />
+          <h1 className="text-2xl font-bold text-gray-800">Invoice Management</h1>
+        </div>
+        
         {user.isAdmin && (
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-1">
-              (format)
-              <FaDownload
-                className="cursor-pointer"
-                onClick={DownloadCsvDemo}
-              />
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <button
+              onClick={DownloadCsvDemo}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+            >
+              <FaDownload className="text-blue-600" />
+              Download Format
+            </button>
             <SendInvoiceDialog ReFetch={fetchInvoices} />
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-4 mt-4">
-        {user.isAdmin && (
-          <div className="flex gap-2">
-            <input
-              className="border h-8 w-full"
-              type="text"
-              onKeyDown={(e) => e.key === "Enter" && fetchInvoices()}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search invoices..."
-            />
-            <button
-              onClick={fetchInvoices}
-              className="p-2 bg-slate-200 hover:bg-slate-100 rounded"
-            >
-              <FaSearch />
-            </button>
-          </div>
-        )}
+      {/* Filters Section */}
+      <div className="bg-white rounded-xl p-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {user.isAdmin && (
+            <div className="relative">
+              <input
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && fetchInvoices()}
+                placeholder="Search invoices..."
+              />
+              <FaSearch className="absolute left-3 top-3 text-gray-400" />
+            </div>
+          )}
 
-        {user.isAdmin && (
+          {user.isAdmin && (
+            <select
+              name="userid"
+              onChange={handleFilterChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              <option value="">All Users</option>
+              {allUsers?.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u?.username}
+                </option>
+              ))}
+            </select>
+          )}
+
           <select
-            name="userid"
+            name="month"
+            disabled={!filters.year}
             onChange={handleFilterChange}
-            className="border px-3 py-1 rounded"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
           >
-            <option value="">Select User</option>
-            {allUsers?.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u?.username}
+            <option value="">All Months</option>
+            {months.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
               </option>
             ))}
           </select>
-        )}
 
-        <select
-          name="month"
-          onChange={handleFilterChange}
-          className="border px-3 py-1 rounded"
-        >
-          <option value="">Select Month</option>
-          {months.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          name="year"
-          onChange={handleFilterChange}
-          className="border px-3 py-1 rounded"
-        >
-          <option value="">Select Year</option>
-          {years.map((y) => (
-            <option key={y.value} value={y.value}>
-              {y.label}
-            </option>
-          ))}
-        </select>
+          <select
+            name="year"
+            onChange={handleFilterChange}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            value={filters.year}
+          >
+            <option value="">All Years</option>
+            {years.map((y) => (
+              <option key={y.value} value={y.value}>
+                {y.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2 mt-6 py-2">
-        {invoices.length === 0 ? (
-          <p className="text-gray-500 text-sm">
-            No invoices found for selected filters.
-          </p>
+      {/* Invoices List */}
+      <div className="bg-white rounded-xl overflow-hidden">
+        {isLoading ? (
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-gray-500">
+              {searchText || filters.month || filters.year || filters.userid
+                ? "No invoices match your filters"
+                : "No invoices found"}
+            </p>
+          </div>
         ) : (
-          invoices.map((invoice) => (
-            <InvoiceCard
-              key={invoice.id}
-              invoice={invoice}
-              user={user}
-              refreshInvoices={fetchInvoices}
-            />
-          ))
+          <div className="divide-y divide-gray-100">
+            {invoices.map((invoice) => (
+              <InvoiceCard
+                key={invoice.id}
+                invoice={invoice}
+                user={user}
+                refreshInvoices={fetchInvoices}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

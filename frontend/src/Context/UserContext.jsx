@@ -17,29 +17,30 @@ const UserProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const verifyUser = async () => {
-      setLoading(true);
-      try {
-        const response = await checkAuthService();
-        console.log("Response from checkAuth:", response);
-        if (response?.data?.authenticated) {
-          console.log("Authenticated user:", response.data.user);
-          setUser(response?.data?.user);
-          console.log("user is set to ", user);
-          setIsAuthenticated(true);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error("Error verifying user:", error);
+  const verifyUser = async () => {
+    setLoading(true);
+    try {
+      const response = await checkAuthService();
+      console.log("Response from checkAuth:", response);
+      if (response?.data?.authenticated) {
+        console.log("Authenticated user:", response.data.user);
+        setUser(response?.data?.user);
+        console.log("user is set to ", user);
+        setIsAuthenticated(true);
+      } else {
         setUser(null);
         setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      setError(error)
+      console.error("Error verifying user:", error);
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
 
     verifyUser();
   }, []);
@@ -139,6 +140,7 @@ const UserProvider = ({ children }) => {
         login,
         logout,
         checkAuth,
+        verifyUser,
       }}
     >
       {children}

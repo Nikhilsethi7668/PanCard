@@ -18,6 +18,7 @@ const UserRequests = () => {
 
     const fetchUserRequests = async (status) => {
         try {
+            setRequests([])
             const response = await Axios.get(`/upload/requests/${user.id}?approvalStage=${status}`);
             setRequests(response.data);
         } catch (error) {
@@ -73,24 +74,31 @@ const UserRequests = () => {
           alert('Failed to download CSV. Please try again.');
         }
       };
-    const handleDownloadData = async (requestId) => {
+      const handleDownloadData = async (requestId) => {
         try {
             const response = await Axios.get(`/upload/download/${requestId}`, {
-                responseType: 'blob', 
+                responseType: 'blob',
             });
     
-            const blob = new Blob([response.data]);
+            // Ensure it's handled as CSV
+            const blob = new Blob([response.data], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
     
-            // Try to extract filename from headers, fallback if not present
+            // Extract filename from content-disposition header if available
             const disposition = response.headers['content-disposition'];
-            let filename = 'downloaded-file';
+            let filename = 'downloaded-data.csv'; // Default fallback
+    
             if (disposition && disposition.includes('filename=')) {
                 filename = disposition
                     .split('filename=')[1]
                     .replace(/["']/g, '');
+    
+                // Add .csv extension if not present
+                if (!filename.endsWith('.csv')) {
+                    filename += '.csv';
+                }
             }
     
             a.download = filename;
@@ -100,10 +108,11 @@ const UserRequests = () => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (error) {
-            console.error('Error downloading file:', error);
+            console.error('Error downloading CSV file:', error);
         }
     };
     
+
 
     useEffect(() => {
         if (user?.id) {
@@ -112,48 +121,93 @@ const UserRequests = () => {
     }, [user, filter]);
 
     return (
-        <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4">Your File Upload Requests</h1>
-
-            {/* Dropdown to filter requests */}
-            <div className="mb-4">
-                <label className="mr-2 font-semibold">Filter by Status:</label>
-                <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="p-2 border rounded"
-                >
-                    <option value=""></option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                </select>
-            </div>
-
-            {/* Requests List */}
-            <ul>
-                {requests.map((request) => (
-                    <li key={request.id} className="mb-4 p-4 border rounded-lg shadow-sm">
-                        <div className="flex justify-between items-center mb-2">
-                           <div className='flex items-center gap-1'> <p className="text-lg font-semibold">{request.fileName}</p> {request.approvalStage === 'pending'?<FaDownload onClick={()=>handleDownloadData(request.id)} className=' cursor-pointer'/>:request.approvalStage === 'approved'?<FaDownload onClick={()=>handleDownloadApprovedData(request.id)} className=' cursor-pointer'/>:null} </div>
-                            <span
-                                className={`px-3 py-1 rounded-full text-sm font-semibold ${approvalColors[request.approvalStage]}`}
-                            >
-                                {request.approvalStage}
-                            </span>
-                        </div>
-                        <p><strong>Created At:</strong> {new Date(request.createdAt).toLocaleString()}</p>
-                        {filter=="approved"&&<p><strong>Number of PANs:</strong> {request.numberOfPans}</p>}
-                        {request.approvalStage === 'approved'&& <button
-                                    onClick={() => handleDeleteData(request.id)}
-                                    className="bg-red-500 text-white px-4 py-2 rounded-lg"
-                                >
-                                    Delete data
-                       </button>}
-                    </li>
-                ))}
-            </ul>
+        <div className="max-w-4xl mx-auto p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h1 className="text-2xl font-bold text-gray-800">Your File Upload Requests</h1>
+          
+          {/* Filter Dropdown */}
+          <div className="w-full sm:w-64">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Status</label>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Requests</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
         </div>
+      
+        {/* Requests List */}
+        <div className="space-y-4">
+          {requests.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No requests found for the selected filter</p>
+            </div>
+          ) : (
+            requests.map((request) => (
+              <div 
+                key={request.id} 
+                className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex flex-col md:flex-row md:justify-between gap-4">
+                  {/* Request Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-lg font-semibold text-gray-800">
+                          {request.fileName}
+                        </h2>
+                        {(request.approvalStage === 'pending' || request.approvalStage === 'approved') && (
+                          <button 
+                            onClick={() => request.approvalStage === 'pending' 
+                              ? handleDownloadData(request.id) 
+                              : handleDownloadApprovedData(request.id)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            title="Download"
+                          >
+                            <FaDownload className="text-lg" />
+                          </button>
+                        )}
+                      </div>
+                     
+                    </div>
+                    
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <p>
+                        <span className="font-medium">Created:</span> {new Date(request.createdAt).toLocaleString()}
+                      </p>
+                      {request.approvalStage === "approved" && (
+                        <p>
+                          <span className="font-medium">Number of PANs:</span> {request.numberOfPans}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col items-end justify-end gap-2">
+                    <div> <span className={`px-3 py-1 rounded-full text-xs font-medium ${approvalColors[request.approvalStage]}`}>
+                        {request.approvalStage}
+                      </span></div>
+                    {request.approvalStage === 'approved' && (
+                      <button
+                        onClick={() => handleDeleteData(request.id)}
+                        className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        Delete Data
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     );
 };
 

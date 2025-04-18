@@ -56,11 +56,11 @@ const sendOtpEmail = async (email, userName) => {
 // Signup Controller
 const signup = async (req, res, next) => {
   console.log("Signup Request:", req.body);
-  const { userName, email, password, panNumber } = req.body;
+  const { userName, email,phoneNumber , password, panNumber } = req.body;
 
   try {
     // Validate required fields
-    if (!userName || !email || !password || !panNumber) {
+    if (!userName|| !phoneNumber || !email || !password || !panNumber) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -68,8 +68,9 @@ const signup = async (req, res, next) => {
     }
 
     // Check if user already exists
-    const [existingEmail, existingUsername, existingPan] = await Promise.all([
+    const [existingEmail,existingPhoneNumber, existingUsername, existingPan] = await Promise.all([
       User.findOne({ where: { email } }),
+      User.findOne({ where: { phoneNumber: phoneNumber } }),
       User.findOne({ where: { username: userName } }),
       User.findOne({ where: { panNumber } }),
     ]);
@@ -78,6 +79,12 @@ const signup = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "User already exists with this email",
+      });
+    }
+    if (existingPhoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is already used",
       });
     }
     if (existingUsername) {
@@ -100,6 +107,7 @@ const signup = async (req, res, next) => {
     const user = await User.create({
       username: userName,
       email,
+      phoneNumber,
       panNumber,
       password: hashedPassword,
     });
@@ -124,6 +132,7 @@ const signup = async (req, res, next) => {
       user: {
         id: user.id,
         username: user.username,
+        phoneNumber:user.phoneNumber,
         email: user.email,
         panNumber: user.panNumber,
       },
@@ -306,6 +315,7 @@ const checkAuth = async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        phoneNumber: user?.phoneNumber,
         email: user.email,
         panNumber: user.panNumber,
         isAdmin: user.isAdmin,
@@ -317,4 +327,91 @@ const checkAuth = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, logout, checkAuth, verifyOtp };
+const updatePassword = async (req, res) => {
+  const { userId } = req.user;
+  const { currentPassword, password } = req.body;
+
+  try {
+    if (!currentPassword || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both current and new passwords are required',
+      });
+    }
+
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password updated successfully',
+    });
+  } catch (error) {
+    console.error('Update Password Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+const updateProfile = async (req, res) => {
+  const { userId } = req.user; 
+  const { username, phoneNumber } = req.body;
+
+  try {
+    if (!username || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and phone number are required',
+      });
+    }
+
+    // Check if username or phone is already taken by another user
+    const [existingUsername, existingPhone] = await Promise.all([
+      User.findOne({ where: { username, id: { [Op.ne]: userId } } }),
+      User.findOne({ where: { phoneNumber, id: { [Op.ne]: userId } } }),
+    ]);
+
+    if (existingUsername) {
+      return res.status(400).json({ success: false, message: 'Username already taken' });
+    }
+    if (existingPhone) {
+      return res.status(400).json({ success: false, message: 'Phone number already in use' });
+    }
+
+    const [updatedCount] = await User.update(
+      { username, phoneNumber },
+      { where: { id: userId } }
+    );
+
+    if (updatedCount === 0) {
+      return res.status(404).json({ success: false, message: 'User not found or no changes made' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+    });
+  } catch (error) {
+    console.error('Update Profile Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
+
+module.exports = { signup, login, logout,updatePassword,updateProfile, checkAuth, verifyOtp };

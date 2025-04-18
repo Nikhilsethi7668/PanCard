@@ -8,12 +8,8 @@ const Data = sequelize.define("Data", {
     primaryKey: true,
     autoIncrement: true,
   },
-  panNumber: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
   email: {
-    type: DataTypes.TEXT, // Store emails as a JSON string
+    type: DataTypes.TEXT,
     allowNull: false,
     get() {
       const rawValue = this.getDataValue("email");

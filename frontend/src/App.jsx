@@ -11,6 +11,7 @@ import AdminDashboard from './Pages/AdminDashboard';
 import UserRequests from './Pages/UserRequests';
 import VerifyOtp from './Pages/VerifyOtp';
 import Invoice from './Pages/Invoice';
+import Profile from './Pages/Profile';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
             <Invoice />
         } />
         <Route path="user-requests" element={<UserRequests />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="/login" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />

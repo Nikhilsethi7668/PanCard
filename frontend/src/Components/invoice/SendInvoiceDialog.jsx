@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Axios from "../../Lib/Axios";
+import Papa from "papaparse";
 
 export default function SendInvoiceDialog({ReFetch}) {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,26 +9,73 @@ export default function SendInvoiceDialog({ReFetch}) {
 
   const handleSubmit = async () => {
     if (!csvFile) {
-      alert("Please upload csv file.");
+      alert("Please upload a CSV file.");
       return;
     }
-
-    const formData = new FormData();
-    formData.append("csv", csvFile);
+  
     try {
       setLoading(true);
-      const res = await Axios.post("/invoice/send-invoice", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      const fileText = await csvFile.text();
+      
+      const { data, errors } = Papa.parse(fileText, {
+        header: true,
+        skipEmptyLines: true,
       });
-      console.log("Success:", res.data);
-      alert("Invoice sent successfully!");
-      ReFetch()
+  
+      if (errors?.length > 0) {
+        throw new Error(`CSV parsing error on line ${errors[0].row + 2}: ${errors[0].message}`);
+      }
+  
+      if (!data?.length) {
+        throw new Error("CSV file is empty");
+      }
+  
+      // Validate specific columns
+      const validationErrors = [];
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/; // PAN format regex
+  
+      data.forEach((row, index) => {
+        const rowNumber = index + 2; 
+  
+        // 1. Check PAN Number format
+        if (!row.panNumber || !panRegex.test(row.panNumber)) {
+          validationErrors.push(`Row ${rowNumber}: Invalid PAN number format (should be AAAAA9999A)`);
+        }
+  
+        // 2. Check required fields
+        if (!row.invoiceNumber) {
+          validationErrors.push(`Row ${rowNumber}: Missing invoice number`);
+        }
+  
+        if (!row.total || isNaN(parseFloat(row.total))) {
+          validationErrors.push(`Row ${rowNumber}: Invalid total amount`);
+        }
+  
+        if (!row.paymentStatus || !['paid', 'pending', 'overdue'].includes(row.paymentStatus.toLowerCase())) {
+          validationErrors.push(`Row ${rowNumber}: Invalid payment status (must be paid/pending/overdue)`);
+        }
+      });
+  
+      if (validationErrors.length > 0) {
+        throw new Error(`Validation errors found:\n${validationErrors.join('\n')}`);
+      }
+  
+      // Upload the file
+      const formData = new FormData();
+      formData.append("csv", csvFile);
+      const res = await Axios.post("/invoice/send-invoice", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+  
+      alert(res.data?.message || "CSV processed successfully");
+      if (res?.data?.errors && Array.isArray(res.data.errors)) {
+        alert(res.data.errors.join('\n'));
+      }
       setIsOpen(false);
+      ReFetch()
     } catch (err) {
-      console.error("Error uploading files:", err);
-      alert("Something went wrong.");
+      console.error("Error:", err);
+      alert(err.message);
     } finally {
       setLoading(false);
     }

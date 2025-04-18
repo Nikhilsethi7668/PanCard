@@ -19,6 +19,7 @@ const ShowPanData = () => {
   const fetchPanEntries = async (page = 1, limit = 10) => {
   try {
     setLoading(true);
+    setPanEntries({})
     const response = await Axios.get(`/pan-entries/${user.id}`, {
       params: { page, limit,searchText,type },
     });
@@ -73,38 +74,47 @@ const ShowPanData = () => {
   }, [selectedPan, currentPage, user.id]);
 
 
-
   const downloadData = async (panNumber) => {
     try {
-      const response = await Axios.get(
-        `/data/${panNumber}/download`,
-        {
-          params: { userId: user.id,type:type },
-        }
-      );
-
-      const csvContent = response.data.emails.join("\n");
+      const response = await Axios.get(`/data/${panNumber}/download`, {
+        params: { userId: user.id, type: type },
+      });
+  
+      let csvContent = '';
+  
+      if (Array.isArray(response.data.emails)) {
+        csvContent = response.data.emails.join("\n");
+      } else if (typeof response.data.emails === 'string') {
+        csvContent = response.data.emails.replace(/,/g, "\n");
+      } else {
+        alert("No emails found for download.");
+        return;
+      }
+  
+      // Create a Blob from the CSV content
       const blob = new Blob([csvContent], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-
+  
+      // Create an anchor element to trigger the download
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `${panNumber}.csv`);
+      link.setAttribute("download", `${panNumber || "data"}.csv`);
       document.body.appendChild(link);
       link.click();
-
+  
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
+  
       alert("Download started!");
     } catch (error) {
       console.error("Error downloading data:", error);
       alert("Failed to download data.");
     }
   };
+  
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-75px)] bg-gray-100">
       <button
         onClick={() => setShowPanList(!showPanList)}
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-md"
@@ -113,12 +123,18 @@ const ShowPanData = () => {
       </button>
 
       <div
-        className={`w-full md:w-1/4 bg-white shadow-lg overflow-y-auto p-6 fixed md:relative transform transition-transform duration-300 ease-in-out ${
+        className={`w-full md:w-1/4 bg-white h-full shadow-lg overflow-y-auto p-6 fixed md:relative transform transition-transform duration-300 ease-in-out ${
           showPanList ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
-        style={{ zIndex: 40, height: "100vh", top: 0, left: 0 }}
+        style={{ zIndex: 40, top: 0, left: 0 }}
       >
         <h1 className="text-2xl font-bold mb-6">PAN Entries</h1>
+        {user?.isAdmin?<select id="type" value={type} onChange={handleTypeChange}>
+        <option value="">-- Select --</option>
+        <option value="user">Users</option>
+        <option value="data">Approved Entries</option>
+        <option value="panemail">Other</option>
+      </select>:null}
         <div className="flex gap-2">
         <input className="border h-8 w-full"  onKeyDown={(e) => {
     if (e.key === 'Enter') {
@@ -126,16 +142,9 @@ const ShowPanData = () => {
     }
   }} type="text" value={searchText} onChange={(e)=>setSearchText(e.target.value)} /> <button onClick={Search} className="p-2 bg-slate-200 hover:bg-slate-100 rounded"><FaSearch/></button>
         </div>
-       {user?.isAdmin?<select id="type" value={type} onChange={handleTypeChange}>
-        <option value="">-- Select --</option>
-        <option value="user">Users</option>
-        <option value="data">Approved Entries</option>
-        <option value="panemail">Other</option>
-      </select>:null}
-
-        {loading&&<div className="w-full flex justify-center"><FiLoader className=" animate-spin" /></div>}
-        <ul className="space-y-2">
-          {panEntries?.panEntries?.length?<span>Result</span>:<></>}
+        {loading&&<div className="w-full mt-16 flex justify-center"><FiLoader className=" animate-spin" /></div>}
+        <ul className="space-y-2 mt-2">
+          {panEntries?.items?.length?<span className="font-medium">Results: {panEntries?.totalCount}</span>:<></>}
           {panEntries?.items?.map((entry) => (
             <li
               key={entry.panNumber}
@@ -152,11 +161,11 @@ const ShowPanData = () => {
             >
               <div>
                 <span className="font-semibold">{entry.panNumber}</span>
-                {/* <span className="text-sm ml-2">
+                <span className="text-sm ml-2">
                   ({entry.emailCount} emails)
-                </span> */}
+                </span>
               </div>
-              <button
+              {type!="user"&&<button
                 onClick={(e) => {
                   e.stopPropagation();
                   downloadData(entry.panNumber);
@@ -164,7 +173,7 @@ const ShowPanData = () => {
                 className="text-red-500 hover:text-red-700"
               >
                 <FaDownload />
-              </button>
+              </button>}
             </li>
           ))}
         </ul>
