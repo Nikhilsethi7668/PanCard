@@ -121,7 +121,7 @@ const Invoice = () => {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && fetchInvoices()}
-                placeholder="Search invoices..."
+                placeholder="Enter Pan Number"
               />
               <FaSearch className="absolute left-3 top-3 text-gray-400" />
             </div>
