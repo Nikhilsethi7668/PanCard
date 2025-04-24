@@ -121,145 +121,141 @@ const uploadFile = async (req, res) => {
 const getData = async (req, res) => {
   try {
     const panNumber = req.params.panNumber;
-    const { page = 1, limit = 100, type } = req.query;
-    const offset = (page - 1) * limit;
+    const { page = 1, limit = 100, type = "data" } = req.query;
+    const parsedPage = Math.max(parseInt(page), 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit), 1), 1000);
+    const offset = (parsedPage - 1) * parsedLimit;
     const userId = req.query.userId;
-    const user = await User.findByPk(userId);
+
+    if (!panNumber) {
+      return res.status(400).json({ message: "PAN number is required" });
+    }
+
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'panNumber', 'isAdmin'],
+      raw: true
+    });
+
     if (!user) {
-      console.log("No User Exists");
       return res.status(400).json({ message: "User doesn't exist" });
     }
-    if (!type) {
-      return res.status(400).json({ message: "Type is required" });
+
+    if (type !== "data" && type !== "user") {
+      return res.status(400).json({ message: "Invalid type parameter" });
     }
-    let panEntry = {};
 
-    if (user.isAdmin) {
-      if (type === "data") {
-        const targetUser = await User.findOne({ where: { panNumber } });
-        if (!targetUser) {
-          return res
-            .status(404)
-            .json({ message: "User with this PAN not found" });
-        }
+    if (!user.isAdmin && type === "user") {
+      return res.status(403).json({ message: "Access denied for user type" });
+    }
 
+    if (type === "data") {
+      let emails = [];
+      let totalEmails = 0;
+      let source = 'data';
+
+      // For non-admin, only allow access to their own PAN
+      if (!user.isAdmin && panNumber !== user.panNumber) {
+        return res.status(403).json({ message: "Access denied to other PANs" });
+      }
+
+      // First try to get from User -> Data
+      const targetUser = await User.findOne({ 
+        where: { panNumber },
+        attributes: ['id'],
+        raw: true
+      });
+
+      if (targetUser) {
         const dataEntries = await Data.findAll({
           where: { userId: targetUser.id },
-          attributes: ["email"],
+          attributes: ['email'],
           raw: true,
         });
 
-        if (!dataEntries || dataEntries?.length === 0) {
-          return res
-            .status(404)
-            .json({ message: "No data found for this user" });
+        if (dataEntries?.length > 0) {
+          emails = dataEntries
+            .map((entry) => {
+              try {
+                return entry?.email ? JSON.parse(entry.email) : [];
+              } catch (e) {
+                console.error("Email parsing error:", e);
+                return [];
+              }
+            })
+            .flat()
+            .filter(email => typeof email === "string" && email.includes("@"));
+          totalEmails = emails.length;
         }
-
-        // Process all emails into a single array
-        const allEmails = await (dataEntries || [])
-          .map((entry) => {
-            try {
-              return entry?.email ? JSON.parse(entry.email) : [];
-            } catch (e) {
-              console.error("Email parsing error:", e);
-              return [];
-            }
-          })
-          .flat()
-          .filter((email) => typeof email === "string" && email.includes("@"));
-
-        // Absolute safety check - ensure we're working with an array
-        const safeEmails = (await Array.isArray(allEmails)) ? allEmails : [];
-        const startIdx = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
-        const endIdx = startIdx + parseInt(limit);
-
-        const paginatedEmails = safeEmails.slice(startIdx, endIdx);
-
-        responseData = {
-          panNumber,
-          emails: paginatedEmails,
-          totalEmails: allEmails.length,
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(allEmails.length / limit),
-        };
-        res.status(200).json(responseData);
-        return;
       }
 
-      if (type == "user") {
-        panEntry = await User.findOne({
+      // If no emails found and user is admin, try PanEmailData
+      if (user.isAdmin && totalEmails === 0) {
+        const panEmailEntry = await PanEmailData.findOne({
           where: { panNumber },
+          attributes: ['Emails'],
+          raw: true,
+        });
+
+        if (panEmailEntry?.Emails) {
+          try {
+            emails = typeof panEmailEntry.Emails === 'string' 
+              ? JSON.parse(panEmailEntry.Emails) 
+              : panEmailEntry.Emails;
+            
+            emails = emails.filter(email => typeof email === "string" && email.includes("@"));
+            totalEmails = emails.length;
+            source = 'panemail';
+          } catch (e) {
+            console.error("Error parsing PanEmail emails:", e);
+          }
+        }
+      }
+
+      if (totalEmails === 0) {
+        return res.status(404).json({ 
+          message: "No email data found for this PAN number",
+          source
         });
       }
-      if (type == "panemail") {
-        panEntry = await PanEmailData.findOne({
-          where: { panNumber },
-        });
-      }
-    } else {
-      if (type !== "data") {
-        return res.status(403).json({ message: "Access denied for this type" });
-      }
 
-      const dataEntries = await Data.findAll({
-        where: { userId },
-        attributes: ["email"],
-        raw: true,
+      return res.status(200).json({
+        panNumber,
+        emails: emails.slice(offset, offset + parsedLimit),
+        totalEmails,
+        currentPage: parsedPage,
+        totalPages: Math.ceil(totalEmails / parsedLimit),
+        source
+      });
+    }
+
+    if (type === "user") {
+      const userEntry = await User.findOne({
+        where: { panNumber },
+        attributes: ['id', 'panNumber', 'email'],
       });
 
-      if (!dataEntries || dataEntries?.length === 0) {
-        return res.status(404).json({ message: "No data found for this user" });
+      if (!userEntry) {
+        return res.status(404).json({ message: "User not found" });
       }
 
-      // Process all emails into a single array
-      const allEmails = await (dataEntries || [])
-        .map((entry) => {
-          try {
-            return entry?.email ? JSON.parse(entry.email) : [];
-          } catch (e) {
-            console.error("Email parsing error:", e);
-            return [];
-          }
-        })
-        .flat()
-        .filter((email) => typeof email === "string" && email.includes("@"));
-
-      const safeEmails = (await Array.isArray(allEmails)) ? allEmails : [];
-      const startIdx = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
-      const endIdx = startIdx + parseInt(limit);
-
-      const paginatedEmails = safeEmails.slice(startIdx, endIdx);
-      responseData = {
-        panNumber: user.panNumber,
-        emails: paginatedEmails,
-        totalEmails: allEmails.length,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(allEmails.length / limit),
-      };
-      res.status(200).json(responseData);
-      return;
+      const emails = userEntry.email ? [userEntry.email] : [];
+      
+      return res.status(200).json({
+        panNumber: userEntry.panNumber,
+        emails: emails.slice(offset, offset + parsedLimit),
+        totalEmails: emails.length,
+        currentPage: parsedPage,
+        totalPages: Math.ceil(emails.length / parsedLimit),
+        source: 'user'
+      });
     }
 
-    if (!panEntry) {
-      return res
-        .status(404)
-        .json({ message: "PAN number not found for this user" });
-    }
-
-    const emails = panEntry?.email?.slice(offset, offset + parseInt(limit));
-
-    res.status(200).json({
-      panNumber: panEntry.panNumber,
-      emails,
-      totalEmails: panEntry.email?.length,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(panEntry?.email?.length / limit),
-    });
   } catch (error) {
     console.error("Error fetching data:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching data", error: error.message });
+    res.status(500).json({
+      message: "Error fetching data",
+      error: error.message,
+    });
   }
 };
 
@@ -281,167 +277,217 @@ const allpan = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (type === "data") {
-      // 1. Get users and map userId => panNumber
-      const users = await User.findAll({
-        attributes: ["id", "panNumber"],
-        raw: true,
-      });
-
-      const userIdToPan = {};
-      const panToUserIds = {};
-
-      users.forEach(({ id, panNumber }) => {
-        userIdToPan[id] = panNumber;
-        if (!panToUserIds[panNumber]) panToUserIds[panNumber] = [];
-        panToUserIds[panNumber].push(id);
-      });
-
-      // 2. Allowed users (admin or self)
-      const allowedUserIds = user.isAdmin
-        ? users.map((u) => u.id)
-        : [parseInt(userId)];
-
-      // 3. Get Data entries
-      const dataEntries = await Data.findAll({
-        where: {
-          userId: { [Op.in]: allowedUserIds },
-        },
-        attributes: ["id", "userId", "email"],
-        raw: true,
-      });
-
-      // 4. Group emails by panNumber
-      const grouped = {};
-
-      for (const entry of dataEntries) {
-        const pan = userIdToPan[entry.userId];
-        if (!grouped[pan]) {
-          grouped[pan] = {
-            panNumber: pan,
-            emails: entry.email || "",
-          };
-        } else {
-          grouped[pan].emails += "," + entry.email;
-        }
+    if (type === "user") {
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
       }
+      
+      const whereCondition = {};
+      const attributes = ["id", "username", "panNumber", "email"];
 
-      // 5. Convert to array with emailCount
-      let combinedResults = Object.entries(grouped).map(([pan, data], idx) => {
-        const emailsArray = data.emails
-          .split(",")
-          .filter((e) => e.trim() !== "");
-        return {
-          id: idx + 1,
-          panNumber: pan,
-          emailCount: emailsArray.length,
-        };
-      });
-
-      // 6. Apply search if provided
       if (searchText) {
-        combinedResults = combinedResults.filter((item) =>
-          item.panNumber?.toLowerCase().includes(searchText.toLowerCase())
-        );
-      }
-
-      // 7. Pagination
-      const totalCount = combinedResults.length;
-      const paginated = combinedResults.slice(offset, offset + parsedLimit);
-
-      return res.status(200).json({
-        totalCount,
-        currentPage: parsedPage,
-        totalPages: Math.ceil(totalCount / parsedLimit),
-        items: paginated,
-        type: type,
-      });
-    }
-
-    // ========== Logic for user and panemail remains unchanged ==========
-    let model, whereCondition, attributes;
-    switch (type) {
-      case "user":
-        if (!user.isAdmin) {
-          return res.status(403).json({ message: "Access denied" });
-        }
-        model = User;
-        whereCondition = {};
-        attributes = ["id", "username", "panNumber", "email"];
-        break;
-
-      case "panemail":
-        if (!user.isAdmin) {
-          return res.status(403).json({ message: "Access denied" });
-        }
-        model = PanEmailData;
-        whereCondition = {};
-        attributes = ["id", "panNumber"];
-        break;
-    }
-
-    if (searchText) {
-      if (type === "panemail") {
-        whereCondition.panNumber = {
-          [Op.like]: `%${searchText.toLowerCase()}%`,
-        };
-      } else if (type === "user") {
         whereCondition[Op.or] = [
           { panNumber: { [Op.like]: `%${searchText.toLowerCase()}%` } },
           { username: { [Op.like]: `%${searchText.toLowerCase()}%` } },
           { email: { [Op.like]: `%${searchText.toLowerCase()}%` } },
         ];
       }
-    }
 
-    const totalCount = await model.count({ where: whereCondition });
+      const totalCount = await User.count({ where: whereCondition });
 
-    let results = await model.findAll({
-      where: whereCondition,
-      attributes: attributes,
-      order: [["panNumber", "ASC"]],
-      limit: parsedLimit,
-      offset: offset,
-      raw: true,
-    });
+      const users = await User.findAll({
+        where: whereCondition,
+        attributes: attributes,
+        order: [["panNumber", "ASC"]],
+        limit: parsedLimit,
+        offset: offset,
+        raw: true,
+      });
 
-    if (type === "panemail") {
-      const ids = results.map((item) => item.id);
-      let emailCounts = [];
-
-      if (ids.length > 0) {
-        emailCounts = await sequelize.query(
-          `SELECT id, JSON_LENGTH(Emails) AS emailCount FROM PanEmailData WHERE id IN (?)`,
-          {
-            replacements: [ids],
-            type: sequelize.QueryTypes.SELECT,
-          }
-        );
-      }
-
-      const countMap = emailCounts.reduce((acc, item) => {
-        acc[item.id] = item.emailCount;
-        return acc;
-      }, {});
-
-      results = results.map((item) => ({
-        ...item,
-        emailCount: countMap[item.id] || 0,
-      }));
-    } else if (type === "user") {
-      results = results.map((item) => ({
+      const results = users.map(item => ({
         ...item,
         emailCount: item.email ? 1 : 0,
       }));
+
+      return res.status(200).json({
+        totalCount,
+        currentPage: parsedPage,
+        totalPages: Math.ceil(totalCount / parsedLimit),
+        items: results,
+        type: type,
+      });
     }
 
-    res.status(200).json({
-      totalCount,
-      currentPage: parsedPage,
-      totalPages: Math.ceil(totalCount / parsedLimit),
-      items: results,
-      type: type,
-    });
+    if (type === "data") {
+      // 1. Get allowed user IDs (admin or self)
+      const allowedUserIds = user.isAdmin 
+        ? (await User.findAll({ attributes: ["id"], raw: true })).map(u => u.id)
+        : [parseInt(userId)];
+
+      // 2. Initialize variables for combined results
+      let combinedResults = [];
+      let dataCount = 0;
+      let panEmailCount = 0;
+      const searchTerm = searchText ? searchText.toLowerCase() : null;
+
+      // 3. First try to get from Data model
+      if (searchTerm) {
+        // Search for users with matching PAN numbers
+        const userPans = await User.findAll({
+          where: { 
+            panNumber: { [Op.like]: `%${searchTerm}%` },
+            id: { [Op.in]: allowedUserIds }
+          },
+          attributes: ["id", "panNumber"],
+          raw: true,
+        });
+
+        if (userPans.length > 0) {
+          // Get all data entries for these users
+          const dataEntries = await Data.findAll({
+            where: { userId: { [Op.in]: userPans.map(u => u.id) } },
+            attributes: ["userId", "email"],
+            raw: true,
+          });
+
+          // Calculate email counts per user
+          const userEmailCounts = {};
+          dataEntries.forEach(entry => {
+            try {
+              const emails = entry.email ? JSON.parse(entry.email) : [];
+              const validEmails = emails.filter(e => typeof e === "string" && e.includes("@"));
+              userEmailCounts[entry.userId] = (userEmailCounts[entry.userId] || 0) + validEmails.length;
+            } catch (e) {
+              console.error("Error parsing emails:", e);
+            }
+          });
+
+          // Map to panNumbers with counts
+          combinedResults = userPans.map(u => ({
+            panNumber: u.panNumber,
+            emailCount: userEmailCounts[u.id] || 0,
+            source: 'data'
+          }));
+
+          dataCount = combinedResults.length;
+        }
+      } else {
+        // No search - get all data entries for allowed users
+        const dataEntries = await Data.findAll({
+          where: { userId: { [Op.in]: allowedUserIds } },
+          attributes: ["userId", "email"],
+          raw: true,
+        });
+
+        // Calculate email counts per user
+        const userEmailCounts = {};
+        dataEntries.forEach(entry => {
+          try {
+            const emails = entry.email ? JSON.parse(entry.email) : [];
+            const validEmails = emails.filter(e => typeof e === "string" && e.includes("@"));
+            userEmailCounts[entry.userId] = (userEmailCounts[entry.userId] || 0) + validEmails.length;
+          } catch (e) {
+            console.error("Error parsing emails:", e);
+          }
+        });
+
+        // Get panNumbers for users with data
+        const usersWithData = await User.findAll({
+          where: { 
+            id: { [Op.in]: Object.keys(userEmailCounts).map(Number) },
+            ...(user.isAdmin ? {} : { id: parseInt(userId) })
+          },
+          attributes: ["id", "panNumber"],
+          raw: true,
+        });
+
+        combinedResults = usersWithData.map(u => ({
+          panNumber: u.panNumber,
+          emailCount: userEmailCounts[u.id] || 0,
+          source: 'data'
+        }));
+
+        dataCount = combinedResults.length;
+      }
+
+      // 4. Check if we need more results from PanEmail (admin only)
+      if (user.isAdmin) {
+        const remainingNeeded = parsedLimit * parsedPage - combinedResults.length;
+        
+        if (remainingNeeded > 0 || (searchTerm && combinedResults.length === 0)) {
+          const panEmailWhere = {};
+          
+          if (searchTerm) {
+            panEmailWhere.panNumber = { [Op.like]: `%${searchTerm}%` };
+          }
+
+          // Get total count from PanEmail for pagination
+          panEmailCount = await PanEmailData.count({ where: panEmailWhere });
+
+          // Calculate how many we need from PanEmail
+          const panEmailOffset = Math.max(0, offset - dataCount);
+          const panEmailLimit = Math.max(0, parsedLimit - Math.max(0, dataCount - offset));
+
+          if (panEmailLimit > 0) {
+            const panEmailResults = await PanEmailData.findAll({
+              where: panEmailWhere,
+              attributes: ["id", "panNumber"],
+              order: [["panNumber", "ASC"]],
+              limit: panEmailLimit,
+              offset: panEmailOffset,
+              raw: true,
+            });
+
+            // Get email counts for these PANs
+            const panEmailIds = panEmailResults.map(item => item.id);
+            let emailCounts = [];
+
+            if (panEmailIds.length > 0) {
+              emailCounts = await sequelize.query(
+                `SELECT id, JSON_LENGTH(Emails) AS emailCount FROM PanEmailData WHERE id IN (?)`,
+                {
+                  replacements: [panEmailIds],
+                  type: sequelize.QueryTypes.SELECT,
+                }
+              );
+            }
+
+            const countMap = emailCounts.reduce((acc, item) => {
+              acc[item.id] = item.emailCount;
+              return acc;
+            }, {});
+
+            // Add to combined results
+            const panEmailItems = panEmailResults.map(item => ({
+              panNumber: item.panNumber,
+              emailCount: countMap[item.id] || 0,
+              source: 'panemail'
+            }));
+
+            combinedResults = combinedResults.concat(panEmailItems);
+          }
+        }
+      }
+
+      // 5. Apply pagination to the combined results
+      const paginatedResults = combinedResults.slice(
+        Math.max(0, offset),
+        offset + parsedLimit
+      );
+
+      // 6. Prepare response
+      return res.status(200).json({
+        totalCount: dataCount + (user.isAdmin ? panEmailCount : 0),
+        dataCount,
+        panEmailCount: user.isAdmin ? panEmailCount : 0,
+        currentPage: parsedPage,
+        totalPages: Math.ceil((dataCount + (user.isAdmin ? panEmailCount : 0)) / parsedLimit),
+        items: paginatedResults,
+        type: type,
+      });
+    }
+
+    return res.status(400).json({ message: "Invalid type parameter" });
   } catch (error) {
     console.error("Error fetching data:", error);
     res.status(500).json({
@@ -503,76 +549,108 @@ const grantAdminAccess = async (req, res) => {
 const downloadEmails = async (req, res) => {
   try {
     const { panNumber } = req.params;
-    const { userId, type } = req.query;
+    const { userId, type = "data" } = req.query;
 
-    // Fetch the PAN entry for the specific user
-    const user = await User.findByPk(userId);
-    const whereCondition = user.isAdmin ? {} : { userId };
-    let panEntry = {};
+    // Validate required parameters
+    if (!panNumber || !userId) {
+      return res.status(400).json({ message: "PAN number and user ID are required" });
+    }
+
+    // Get requesting user and validate
+    const requestingUser = await User.findByPk(userId, {
+      attributes: ['id', 'panNumber', 'isAdmin'],
+      raw: true
+    });
+
+    if (!requestingUser) {
+      return res.status(404).json({ message: "Requesting user not found" });
+    }
+
+    // Non-admin users can only access their own PAN data
+    if (!requestingUser.isAdmin && panNumber !== requestingUser.panNumber) {
+      return res.status(403).json({ message: "Access denied to other PANs" });
+    }
+
     if (type === "data") {
-      let dataEntries = [];
-      let pan = panNumber;
+      let emails = [];
+      let source = 'data';
 
-      if (user.isAdmin) {
-        const targetUser = await User.findOne({ where: { panNumber } });
-        if (!targetUser) {
-          return res
-            .status(404)
-            .json({ message: "User with this PAN not found" });
-        }
-        dataEntries = await Data.findAll({
+      // First try to find user with this PAN
+      const targetUser = await User.findOne({ 
+        where: { panNumber },
+        attributes: ['id'],
+        raw: true
+      });
+
+      if (targetUser) {
+        // Get emails from Data model for this user
+        const dataEntries = await Data.findAll({
           where: { userId: targetUser.id },
-          attributes: ["email"],
+          attributes: ['email'],
           raw: true,
         });
-        pan = targetUser.panNumber;
-      } else {
-        dataEntries = await Data.findAll({
-          where: { userId },
-          attributes: ["email"],
+
+        if (dataEntries?.length > 0) {
+          emails = dataEntries
+            .map((entry) => {
+              try {
+                return entry?.email ? JSON.parse(entry.email) : [];
+              } catch (e) {
+                console.error("Email parsing error:", e);
+                return [];
+              }
+            })
+            .flat()
+            .filter(email => typeof email === "string" && email.includes("@"));
+          source = 'data';
+        }
+      }
+
+      // If no user found or no emails in Data model, try PanEmail (for admins only)
+      if (requestingUser.isAdmin && emails.length === 0) {
+        const panEmailEntry = await PanEmailData.findOne({
+          where: { panNumber },
+          attributes: ['Emails'],
           raw: true,
         });
-      }
 
-      if (!dataEntries || dataEntries.length === 0) {
-        return res.status(404).json({ message: "No data found for this user" });
-      }
-
-      const allEmails = dataEntries
-        .map((entry) => {
+        if (panEmailEntry?.Emails) {
           try {
-            return entry?.email ? JSON.parse(entry.email) : [];
+            emails = typeof panEmailEntry.Emails === 'string' 
+              ? JSON.parse(panEmailEntry.Emails) 
+              : panEmailEntry.Emails;
+            
+            emails = emails
+              .filter(email => typeof email === "string" && email.includes("@"));
+            source = 'panemail';
           } catch (e) {
-            console.error("Email parsing error:", e);
-            return [];
+            console.error("Error parsing PanEmail emails:", e);
           }
-        })
-        .flat()
-        .filter((email) => typeof email === "string" && email.includes("@"));
+        }
+      }
+
+      if (emails.length === 0) {
+        return res.status(404).json({ 
+          message: "No email data found for this PAN number",
+          source
+        });
+      }
 
       return res.status(200).json({
-        emails: allEmails,
-      });
-    }
-    if (type == "panemail") {
-      panEntry = await PanEmailData.findOne({
-        where: { panNumber },
+        panNumber,
+        emails,
+        totalCount: emails.length,
+        source
       });
     }
 
-    if (!panEntry) {
-      return res
-        .status(404)
-        .json({ message: "PAN number not found for this user" });
-    }
-
-    // Return all emails
-    res.status(200).json({ emails: panEntry.email });
+    return res.status(400).json({ message: "Invalid type parameter" });
   } catch (error) {
     console.error("Error fetching emails for download:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching emails", error: error.message });
+    res.status(500).json({
+      message: "Error fetching emails",
+      error: error.message,
+    });
   }
 };
 

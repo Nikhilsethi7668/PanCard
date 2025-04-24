@@ -21,19 +21,19 @@ const HandleUsers = () => {
         }
     };
 
-    const handleAdminAccess = async (userId) => {
-        console.log(userId);
+    // const handleAdminAccess = async (userId) => {
+    //     console.log(userId);
         
-        try {
-            await Axios.post(`/data/grant-admin-access/${userId}`, {
-                requestingUserId: user.id, // Pass the requesting user's ID
-            });
-            fetchAllUsers(); // Refresh the list after granting admin access
-            alert('Admin access granted successfully!');
-        } catch (error) {
-            alert(error.response.data.message);
-        }
-    };
+    //     try {
+    //         await Axios.post(`/data/grant-admin-access/${userId}`, {
+    //             requestingUserId: user.id, // Pass the requesting user's ID
+    //         });
+    //         fetchAllUsers(); // Refresh the list after granting admin access
+    //         alert('Admin access granted successfully!');
+    //     } catch (error) {
+    //         alert(error.response.data.message);
+    //     }
+    // };
 
     const handleDeleteUser = async (userId) => {
         try {
@@ -55,7 +55,6 @@ const HandleUsers = () => {
                     <UserCard
                         key={user._id}
                         user={user}
-                        onGrantAdminAccess={handleAdminAccess}
                         onDeleteUser={handleDeleteUser}
                     />
                 ))}

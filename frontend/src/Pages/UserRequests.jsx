@@ -25,14 +25,14 @@ const UserRequests = () => {
             console.error('Error fetching user requests:', error);
         }
     };
-    const handleDeleteData=async (requestId)=>{
-        try {
-            await Axios.put(`/upload/requests/delete/${requestId}`);
-            fetchUserRequests(filter); // Refresh after update
-        } catch (error) {
-            console.error('Error deleting data:', error);
-        }
-    }
+    // const handleDeleteData=async (requestId)=>{
+    //     try {
+    //         await Axios.put(`/upload/requests/delete/${requestId}`);
+    //         fetchUserRequests(filter); // Refresh after update
+    //     } catch (error) {
+    //         console.error('Error deleting data:', error);
+    //     }
+    // }
 
     const handleDownloadApprovedData = async (requestId) => {
         try {
@@ -193,14 +193,14 @@ const UserRequests = () => {
                     <div> <span className={`px-3 py-1 rounded-full text-xs font-medium ${approvalColors[request.approvalStage]}`}>
                         {request.approvalStage}
                       </span></div>
-                    {request.approvalStage === 'approved' && (
+                    {/* {request.approvalStage === 'approved' && (
                       <button
                         onClick={() => handleDeleteData(request.id)}
                         className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                       >
                         Delete Data
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>

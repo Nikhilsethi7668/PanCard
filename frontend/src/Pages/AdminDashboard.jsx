@@ -47,16 +47,16 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleDeleteData = async (requestId) => {
-        if (window.confirm('Are you sure you want to delete this data?')) {
-            try {
-                await Axios.put(`/upload/requests/delete/${requestId}`);
-                fetchRequests(filter);
-            } catch (error) {
-                console.error('Error deleting data:', error);
-            }
-        }
-    };
+    // const handleDeleteData = async (requestId) => {
+    //     if (window.confirm('Are you sure you want to delete this data?')) {
+    //         try {
+    //             await Axios.put(`/upload/requests/delete/${requestId}`);
+    //             fetchRequests(filter);
+    //         } catch (error) {
+    //             console.error('Error deleting data:', error);
+    //         }
+    //     }
+    // };
 
     const handleDownloadApprovedData = async (requestId) => {
         try {
@@ -228,7 +228,7 @@ const AdminDashboard = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            {request.approvalStage === 'approved' && (
+                                            {/* {request.approvalStage === 'approved' && (
                                                 <button
                                                     onClick={() => handleDeleteData(request.id)}
                                                     className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -236,7 +236,7 @@ const AdminDashboard = () => {
                                                     <FaTrash className="mr-2" />
                                                     Delete Data
                                                 </button>
-                                            )}
+                                            )} */}
                                         </div>
                                     </div>
                                 </div>

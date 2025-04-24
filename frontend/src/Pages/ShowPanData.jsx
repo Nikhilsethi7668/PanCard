@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { UserContext } from "../Context/UserContext";
-import { FaDownload, FaSearch } from "react-icons/fa";
+import { FaDownload, FaSearch, FaTruckLoading } from "react-icons/fa";
 import { FiLoader } from "react-icons/fi";
 import Axios from "../Lib/Axios";
 
@@ -13,6 +13,7 @@ const ShowPanData = () => {
   const [showPanList, setShowPanList] = useState(false);
   const { user } = useContext(UserContext);
   const [loading,setLoading]=useState(false)
+  const [emailLoading,setEmailLoading]=useState(false)
   const [currentPagePan, setCurrentPagePan] = useState(1);
  const [searchText,setSearchText]=useState("")
  const [type,setType]=useState("data")
@@ -49,6 +50,7 @@ const ShowPanData = () => {
     if (!selectedPan) return;
 
     const fetchEmails = async () => {
+      setEmailLoading(true)
       try {
         const response = await Axios.get(
           `/data/${selectedPan}`,
@@ -67,6 +69,8 @@ const ShowPanData = () => {
       } catch (error) {
         console.error("Error fetching emails:", error);
         alert("Failed to fetch emails.");
+      } finally{
+        setEmailLoading(false)
       }
     };
 
@@ -129,12 +133,12 @@ const ShowPanData = () => {
         style={{ zIndex: 40, top: 0, left: 0 }}
       >
         <h1 className="text-2xl font-bold mb-6">PAN Entries</h1>
-        {user?.isAdmin?<select id="type" value={type} onChange={handleTypeChange}>
+        {/* {user?.isAdmin?<select id="type" value={type} onChange={handleTypeChange}>
         <option value="">-- Select --</option>
         <option value="user">Users</option>
         <option value="data">Approved Entries</option>
         <option value="panemail">Other</option>
-      </select>:null}
+      </select>:null} */}
         <div className="flex gap-2">
         <input className="border h-8 w-full"  onKeyDown={(e) => {
     if (e.key === 'Enter') {
@@ -203,7 +207,8 @@ const ShowPanData = () => {
       <div className="flex-1 p-6 overflow-y-auto">
         {selectedPan ? (
           <>
-            <h2 className="text-2xl font-bold mb-6">
+          {emailLoading?<div className="h-full w-full flex justify-center items-center"><FiLoader className=" animate-spin"/></div>:<div>
+           <h2 className="text-2xl font-bold mb-6">
               Emails for PAN: {selectedPan}
             </h2>
             <div className="grid grid-cols-1 gap-4">
@@ -242,6 +247,7 @@ const ShowPanData = () => {
                 Next
               </button>
             </div>
+           </div>}
           </>
         ) : (
           <p className="text-gray-600">Select a PAN number to view emails.</p>

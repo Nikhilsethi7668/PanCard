@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaUserShield, FaTrash, FaUser, FaIdCard, FaPhone, FaEnvelope } from 'react-icons/fa';
 
-const UserCard = ({ user, onGrantAdminAccess, onDeleteUser }) => {
+const UserCard = ({ user, onDeleteUser }) => {
     return (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
             <div className="p-4">
@@ -37,15 +37,6 @@ const UserCard = ({ user, onGrantAdminAccess, onDeleteUser }) => {
 
                 {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-100">
-                    {!user.isAdmin && (
-                        <button
-                            onClick={() => onGrantAdminAccess(user.id)}
-                            className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <FaUserShield className="mr-2" />
-                            Make Admin
-                        </button>
-                    )}
                     <button
                         onClick={() => onDeleteUser(user.id)}
                         className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
