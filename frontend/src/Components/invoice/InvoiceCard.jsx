@@ -50,7 +50,7 @@ const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
       head: [["Description", "Quantity", "Unit Price", "Amount"]],
       body: [
         [
-          "Email Verification Services",
+          "Emails",
           invoice.totalEmails,
           `₹${invoice.perEmailPrice.toFixed(2)}`,
           `₹${invoice.subtotal.toFixed(2)}`
