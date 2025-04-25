@@ -36,5 +36,7 @@ const Data = sequelize.define("Data", {
     },
   },
 });
-
+Data.associate = function(models) {
+  Data.belongsTo(models.User, { foreignKey: 'userId' });
+};
 module.exports = Data;

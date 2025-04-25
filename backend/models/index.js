@@ -28,10 +28,7 @@ Invoice.belongsTo(User, {
   as: "user",
 });
 
-User.associate = (models) => {
-};
-
-Invoice.associate = (models) => {
-};
+User.hasMany(Data, { foreignKey: 'userId' });
+Data.belongsTo(User, { foreignKey: 'userId' });
 
 module.exports = { User, FileRequest, Invoice, sequelize };

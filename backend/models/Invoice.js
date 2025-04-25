@@ -46,6 +46,25 @@ const Invoice = sequelize.define(
         isEmail: true,
       },
     },
+    // New email-related fields
+    totalEmails: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "Total number of emails processed"
+    },
+    perEmailPrice: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "Price per individual email"
+    },
+    subtotal: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "Total before tax (totalEmails * perEmailPrice)"
+    },
     taxType: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -57,14 +76,12 @@ const Invoice = sequelize.define(
     taxAmount: {
       type: DataTypes.FLOAT,
       allowNull: false,
-    },
-    totalWithoutTax: {
-      type: DataTypes.FLOAT,
-      allowNull: false,
+      comment: "Calculated tax amount (subtotal * taxPercentage/100)"
     },
     total: {
       type: DataTypes.FLOAT,
       allowNull: false,
+      comment: "Final total including tax (subtotal + taxAmount)"
     },
     notes: {
       type: DataTypes.TEXT,
@@ -92,6 +109,22 @@ const Invoice = sequelize.define(
   }
 );
 
+Invoice.beforeValidate((invoice, options) => {
 
-
+  invoice.subtotal = invoice.totalEmails * invoice.perEmailPrice;
+  
+  if (!invoice.taxAmount && invoice.taxPercentage) {
+    invoice.taxAmount = invoice.subtotal * (invoice.taxPercentage / 100);
+  }
+  
+  if (!invoice.total) {
+    invoice.total = invoice.subtotal + (invoice.taxAmount || 0);
+  }
+  
+  ['perEmailPrice', 'subtotal', 'taxAmount', 'total'].forEach(field => {
+    if (invoice[field] !== undefined) {
+      invoice[field] = parseFloat(invoice[field].toFixed(2));
+    }
+  });
+});
 module.exports = Invoice;

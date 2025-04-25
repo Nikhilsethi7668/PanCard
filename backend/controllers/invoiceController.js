@@ -30,16 +30,14 @@ exports.sendInvoice = async (req, res) => {
 
     for (const row of results) {
       try {
-        // Validate required fields
         const requiredFields = [
           "panNumber",
           "billToName",
+          "totalEmails",
+          "perEmailPrice",
           "taxType",
           "taxPercentage",
-          "taxAmount",
-          "totalWithoutTax",
-          "total",
-          "dueDate",
+          "dueDate"
         ];
 
         const missingFields = requiredFields.filter(
@@ -53,18 +51,47 @@ exports.sendInvoice = async (req, res) => {
           continue;
         }
 
-        
         // Find user by PAN
         const user = await db.User.findOne({
-          where: { panNumber:row["panNumber"].trim() },
+          where: { panNumber: row["panNumber"].trim() },
         });
 
         if (!user) {
           errors.push(`User not found for PAN: ${row["panNumber"]}`);
           continue;
         }
-        console.log("user pan:", user.panNumber ,"id", user.id);
-        // Create invoice
+
+        // Calculate values based on email fields
+        const totalEmails = parseInt(row["totalEmails"]);
+        const perEmailPrice = parseFloat(row["perEmailPrice"]);
+        const subtotal = totalEmails * perEmailPrice;
+        const taxPercentage = parseFloat(row["taxPercentage"]);
+        const taxAmount = subtotal * (taxPercentage / 100);
+        const total = subtotal + taxAmount;
+        console.log(Invoice.rawAttributes);
+        console.log("Creating invoice with:", {
+          invoiceNumber: row["invoiceNumber"] || `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          invoiceDate: row["invoiceDate"] ? new Date(row["invoiceDate"]) : new Date(),
+          dueDate: new Date(row["dueDate"]),
+          billToName: row["billToName"],
+          billToCompany: row["billToCompany"] || null,
+          billToAddress: row["billToAddress"] || null,
+          billToEmail: row["billToEmail"] || null,
+          panNumber: row["panNumber"].trim(),
+          totalEmails: totalEmails,
+          perEmailPrice: perEmailPrice,
+          subtotal: subtotal,
+          taxType: row["taxType"],
+          taxPercentage: taxPercentage,
+          taxAmount: taxAmount,
+          total: total,
+          notes: row["notes"] || null,
+          paymentStatus: row["paymentStatus"]?.toLowerCase() || "pending",
+          isRead: false,
+          userId: user.id,
+        });
+        
+        // Create invoice with new fields
         const invoice = await Invoice.create({
           invoiceNumber: row["invoiceNumber"] || `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           invoiceDate: row["invoiceDate"] ? new Date(row["invoiceDate"]) : new Date(),
@@ -74,11 +101,15 @@ exports.sendInvoice = async (req, res) => {
           billToAddress: row["billToAddress"] || null,
           billToEmail: row["billToEmail"] || null,
           panNumber: row["panNumber"].trim(),
+          // Email-related fields
+          totalEmails: totalEmails,
+          perEmailPrice: perEmailPrice,
+          subtotal: subtotal,
+          // Tax fields
           taxType: row["taxType"],
-          taxPercentage: parseFloat(row["taxPercentage"]),
-          taxAmount: parseFloat(row["taxAmount"]),
-          totalWithoutTax: parseFloat(row["totalWithoutTax"]),
-          total: parseFloat(row["total"]),
+          taxPercentage: taxPercentage,
+          taxAmount: taxAmount,
+          total: total,
           notes: row["notes"] || null,
           paymentStatus: row["paymentStatus"]?.toLowerCase() || "pending",
           isRead: false,
@@ -96,11 +127,16 @@ exports.sendInvoice = async (req, res) => {
     res.json({
       success: true,
       message: `Processed ${processedInvoices.length} invoices`,
+      processedCount: processedInvoices.length,
+      errorCount: errors.length,
       errors: errors.length ? errors : undefined,
     });
   } catch (error) {
     console.error("Error processing invoices:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 
@@ -158,27 +194,58 @@ exports.getAllInvoices = async (req, res) => {
       ];
     }
 
-    // Add panNumber search
+    // Add search functionality
     if (searchText) {
-      where[Op.and] = [
-        ...(where[Op.and] || []),
-       new Where(
-          Sequelize.fn("UPPER", Sequelize.col("user.panNumber")),
-          {
+      where[Op.or] = [
+        {
+          invoiceNumber: {
+            [Op.like]: `%${searchText}%`
+          }
+        },
+        {
+          panNumber: {
             [Op.like]: `%${searchText.toUpperCase()}%`
           }
-        )
+        },
+        {
+          billToName: {
+            [Op.like]: `%${searchText}%`
+          }
+        }
       ];
     }
 
     const invoices = await Invoice.findAll({
       where,
+      attributes: [
+        'id',
+        'invoiceNumber',
+        'invoiceDate',
+        'dueDate',
+        'billToName',
+        'billToCompany',
+        'billToAddress',
+        'billToEmail',
+        'panNumber',
+        'totalEmails',
+        'perEmailPrice',
+        'subtotal',
+        'taxType',
+        'taxPercentage',
+        'taxAmount',
+        'total',
+        'notes',
+        'paymentStatus',
+        'isRead',
+        'createdAt',
+        'updatedAt'
+      ],
       include: [
         {
           model: db.User,
           as: "user",
           attributes: ["id", "username", "email", "panNumber"],
-          required: true, // ensures INNER JOIN
+          required: true,
         },
       ],
       order: [["invoiceDate", "DESC"]],
@@ -190,9 +257,6 @@ exports.getAllInvoices = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-
 
 exports.getUserInvoices = async (req, res) => {
   try {

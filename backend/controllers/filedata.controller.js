@@ -948,9 +948,14 @@ const downloadCsv = async (req, res) => {
   try {
     const { requestId } = req.params;
 
-    // Fetch all data entries associated with the requestId
+    // Fetch all data entries associated with the requestId, including user information
     const dataEntries = await Data.findAll({
       where: { fileRequestId: requestId },
+      include: [{
+        model: User,
+        attributes: ['panNumber'],
+        required: true
+      }],
       raw: true,
     });
 
@@ -962,7 +967,7 @@ const downloadCsv = async (req, res) => {
 
     // Transform data into CSV format
     const csvData = [];
-    dataEntries.forEach((entry) => {
+    for (const entry of dataEntries) {
       // Parse the JSON email array
       const emails = JSON.parse(entry.email);
 
@@ -970,12 +975,13 @@ const downloadCsv = async (req, res) => {
       emails.forEach((email) => {
         csvData.push({
           email: email,
+          panNumber: entry['User.panNumber'] // Access the PAN number from the included User model
         });
       });
-    });
+    }
 
     // Configure CSV parser
-    const fields = ["email"];
+    const fields = ["email", "panNumber"]; // Include panNumber in fields
     const opts = { fields };
     const parser = new Parser(opts);
     const csv = parser.parse(csvData);

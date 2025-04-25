@@ -1,2 +1,2 @@
-invoiceNumber,invoiceDate,dueDate,billToName,billToCompany,billToAddress,billToEmail,panNumber,taxType,taxPercentage,taxAmount,totalWithoutTax,total,notes,paymentStatus
-INV-2025-0055,2025-04-10,2025-04-25,Kavita Joshi,Joshi Artworks,"Bandra West, Mumbai, Maharashtra",kavita@joshiartworks.com,AAAAA9999B,SGST+CGST,18,3600,20000,23600,Final payment for project delivery.,overdue
+invoiceNumber,invoiceDate,dueDate,billToName,billToCompany,billToAddress,billToEmail,panNumber,totalEmails,perEmailPrice,subtotal,taxType,taxPercentage,taxAmount,total,notes,paymentStatus
+INV-2025-0065,2025-04-10,2025-04-25,Kavita Joshi,Joshi Artworks,"Bandra West, Mumbai, Maharashtra",kavita@joshiartworks.com,AAAAA9999B,10000,2.00,20000.00,SGST+CGST,18,3600.00,23600.00,"Final payment for email verification services",paid

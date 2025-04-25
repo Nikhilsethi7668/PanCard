@@ -26,38 +26,71 @@ const InvoiceCard = ({ invoice, user, refreshInvoices }) => {
 
   const generatePDF = () => {
     const doc = new jsPDF();
+    
+    // Header
     doc.setFontSize(18);
     doc.text("Invoice", 14, 20);
+    
+    // Invoice Info
     doc.setFontSize(12);
     doc.text(`Invoice Number: ${invoice.invoiceNumber}`, 14, 30);
-    doc.text(`Invoice Date: ${invoice.invoiceDate}`, 14, 36);
-    doc.text(`Due Date: ${invoice.dueDate}`, 14, 42);
+    doc.text(`Invoice Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 14, 36);
+    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 14, 42);
+    
+    // Bill To Section
     doc.text("Bill To:", 14, 52);
     doc.text(`${invoice.billToName}`, 14, 58);
-    doc.text(`${invoice.billToCompany}`, 14, 64);
-    doc.text(`${invoice.billToAddress}`, 14, 70);
-    doc.text(`${invoice.billToEmail}`, 14, 76);
-
+    if (invoice.billToCompany) doc.text(`${invoice.billToCompany}`, 14, 64);
+    if (invoice.billToAddress) doc.text(`${invoice.billToAddress}`, 14, 70);
+    if (invoice.billToEmail) doc.text(`${invoice.billToEmail}`, 14, 76);
+    
+    // Email Details Table
     autoTable(doc, {
       startY: 90,
-      head: [["Tax Type", "Tax %", "Tax Amt", "Total (Excl. tax)", "Total"]],
+      head: [["Description", "Quantity", "Unit Price", "Amount"]],
+      body: [
+        [
+          "Email Verification Services",
+          invoice.totalEmails,
+          `₹${invoice.perEmailPrice.toFixed(2)}`,
+          `₹${invoice.subtotal.toFixed(2)}`
+        ]
+      ],
+    });
+    
+    // Summary Table
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [["Tax Type", "Tax %", "Tax Amount", "Subtotal", "Total"]],
       body: [
         [
           invoice.taxType,
           invoice.taxPercentage + "%",
-          `₹${invoice.taxAmount}`,
-          `₹${invoice.totalWithoutTax}`,
-          `₹${invoice.total}`,
+          `₹${invoice.taxAmount.toFixed(2)}`,
+          `₹${invoice.subtotal.toFixed(2)}`,
+          `₹${invoice.total.toFixed(2)}`
         ],
       ],
     });
-
-    doc.text(`Notes: ${invoice.notes}`, 14, doc.lastAutoTable.finalY + 10);
+    
+    // Notes and Status
+    doc.text(`Notes: ${invoice.notes || 'N/A'}`, 14, doc.lastAutoTable.finalY + 15);
     doc.text(
-      `Payment Status: ${invoice.paymentStatus}`,
+      `Payment Status: ${invoice.paymentStatus.toUpperCase()}`,
       14,
-      doc.lastAutoTable.finalY + 18
+      doc.lastAutoTable.finalY + 23
     );
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(
+      "Thank you for your business!",
+      105,
+      285,
+      { align: "center" }
+    );
+    
     markRead(invoice.id);
     doc.save(`${invoice.invoiceNumber}.pdf`);
   };
