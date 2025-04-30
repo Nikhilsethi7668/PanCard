@@ -14,7 +14,7 @@ const validationSchema = Yup.object({
 const SignIn = () => {
     const { login, loading, user, logout, isAuthenticated } = useContext(UserContext);
     const [errorMessage, setErrorMessage] = useState("");
-
+const navigate = useNavigate();
     const handleLogin = async (data) => {
         console.log("data is ", data)
         try {
@@ -26,6 +26,7 @@ const SignIn = () => {
     };
 
     if (isAuthenticated) {
+        navigate('/')
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 py-12 px-4">
                 <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg text-center">
