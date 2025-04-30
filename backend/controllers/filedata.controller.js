@@ -735,7 +735,7 @@ const getRequests = async (req, res) => {
         {
           model: User,
           as: "user",
-          attributes: ["email"],
+          attributes: ["email","panNumber"],
         },
       ],
     });
@@ -857,7 +857,7 @@ const getRequestsByUser = async (req, res) => {
         {
           model: User,
           as: "user",
-          attributes: ["email"],
+          attributes: ["email","panNumber"],
         },
       ],
     });

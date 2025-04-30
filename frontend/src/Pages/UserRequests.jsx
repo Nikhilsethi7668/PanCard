@@ -181,9 +181,10 @@ const UserRequests = () => {
                         <span className="font-medium">Created:</span> {new Date(request.createdAt).toLocaleString()}
                       </p>
                       {request.approvalStage === "approved" && (
-                        <p>
-                          <span className="font-medium">Number of Emails:</span> {request.numberOfPans}
-                        </p>
+                         <div className="mt-2 text-sm flex flex-wrap gap-3">
+                         <p><span className="font-medium">Number of Emails:</span> {request.numberOfPans}</p>
+                         <p><span className="font-medium">Pan Number:</span> {request.user.panNumber}</p>
+                     </div>
                       )}
                     </div>
                   </div>
