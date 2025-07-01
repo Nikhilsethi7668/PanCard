@@ -7,6 +7,6 @@ export default defineConfig({
   preview: {
     host: true,
     port: 4173,
-    allowedHosts: ['panemail.amiigo.in'],
+    allowedHosts: ['panemail.amiigo.in','email-app.amiigo.in'],
   },
 })
