@@ -28,6 +28,7 @@ const corseConnection = [
   "https://pancard-1-3vgg.onrender.com",
   "http://localhost", // Docker frontend
   "http://66.94.120.78", // Public IP
+  "http://66.94.120.78:5001"
 ];
 
 // Middleware
