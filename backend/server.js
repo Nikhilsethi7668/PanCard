@@ -26,6 +26,8 @@ const corseConnection = [
   "http://localhost:4173",
   "https://panemail.amiigo.in",
   "https://pancard-1-3vgg.onrender.com",
+  "http://localhost", // Docker frontend
+  "http://66.94.120.78", // Public IP
 ];
 
 // Middleware
