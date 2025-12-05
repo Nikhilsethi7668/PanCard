@@ -30,6 +30,7 @@ const sendOtpEmail = async (email, userName) => {
       },
       { transaction: t }
     );
+    console.log("OTP Created:", otp);
 
     // Send email using correct Mailtrap API
     const response = await client.send({
@@ -56,11 +57,11 @@ const sendOtpEmail = async (email, userName) => {
 // Signup Controller
 const signup = async (req, res, next) => {
   console.log("Signup Request:", req.body);
-  const { userName, email,phoneNumber , password, panNumber } = req.body;
+  const { userName, email, phoneNumber, password, panNumber } = req.body;
 
   try {
     // Validate required fields
-    if (!userName|| !phoneNumber || !email || !password || !panNumber) {
+    if (!userName || !phoneNumber || !email || !password || !panNumber) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -68,7 +69,7 @@ const signup = async (req, res, next) => {
     }
 
     // Check if user already exists
-    const [existingEmail,existingPhoneNumber, existingUsername, existingPan] = await Promise.all([
+    const [existingEmail, existingPhoneNumber, existingUsername, existingPan] = await Promise.all([
       User.findOne({ where: { email } }),
       User.findOne({ where: { phoneNumber: phoneNumber } }),
       User.findOne({ where: { username: userName } }),
@@ -132,7 +133,7 @@ const signup = async (req, res, next) => {
       user: {
         id: user.id,
         username: user.username,
-        phoneNumber:user.phoneNumber,
+        phoneNumber: user.phoneNumber,
         email: user.email,
         panNumber: user.panNumber,
       },
@@ -367,7 +368,7 @@ const updatePassword = async (req, res) => {
   }
 };
 const updateProfile = async (req, res) => {
-  const { userId } = req.user; 
+  const { userId } = req.user;
   const { username, phoneNumber } = req.body;
 
   try {
@@ -414,4 +415,4 @@ const updateProfile = async (req, res) => {
 };
 
 
-module.exports = { signup, login, logout,updatePassword,updateProfile, checkAuth, verifyOtp };
+module.exports = { signup, login, logout, updatePassword, updateProfile, checkAuth, verifyOtp };

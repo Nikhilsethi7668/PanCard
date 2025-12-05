@@ -1,15 +1,16 @@
 const express = require("express");
+const dotenv = require("dotenv");
+// Load environment variables immediately
+dotenv.config();
+
 const sequelize = require("./config/database"); // Import Sequelize instance
 const cors = require("cors");
-const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const Queue = require("bull");
 const OtpModel = require("./models/otpSchema");
 require("./utils/remove-unverified-user.js");
 // Import the invoice routes
 const invoiceRoutes = require("./routes/invoiceRoutes");
-// Load environment variables
-dotenv.config();
 
 const dataRoutes = require("./routes/filedata.route.js");
 const authRoutes = require("./routes/auth.routes.js");

@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [react()],
   preview: {
     host: true,
-    port: 4173,
+    port: 4001,
     allowedHosts: ['panemail.amiigo.in'],
+  },
+  server: {
+    port: 5001,
   },
 })

@@ -35,7 +35,7 @@ router.get(
   "/upload/requests/get-csv/:requestId",
   dataController.downloadCsv
 );
-router.put("/upload/requests/:requestId",authMiddleware, dataController.updateRequestStatus);
+router.put("/upload/requests/:requestId", authMiddleware, dataController.updateRequestStatus);
 // router.post("/upload/invoice");
 
 module.exports = (fileQueue) => {
